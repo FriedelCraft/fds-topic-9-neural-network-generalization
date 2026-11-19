@@ -1,0 +1,115 @@
+# Neural-network capacity and generalization
+
+MAC 312 · Project 9
+
+On noisy XOR with 256 training examples, the width-32 network reached **84.5% mean test accuracy** and **0.440 test cross-entropy**. Logistic regression reached **50.9%** and **0.700**. On the Wisconsin Diagnostic Breast Cancer dataset (WDBC) at the same sample size, logistic regression reached **97.1%**, versus **96.0%** for the unregularized width-32 network. Under independently randomized WDBC labels, the width-32 model fit every training label at both tested sample sizes while held-out accuracy stayed near 50%. The diagnosis depends on the model class, how long it trains, and whether train and validation losses diverge.
+
+## Model and derivation
+
+Let $X\in\mathbb{R}^{n\times d}$ be the standardized features, $y\in\{0,1\}^n$ the labels, and $m$ the hidden width. With $\mathbf1$ the vector of ones, the forward model is
+
+$$
+A=XW_1+\mathbf1 b_1^\top,\qquad H=\tanh(A),\qquad
+z=Hw_2+b_2\mathbf1,\qquad
+Y_i\mid x_i\sim\operatorname{Bernoulli}(\sigma(z_i)).
+$$
+
+Here $W_1\in\mathbb{R}^{d\times m}$, $b_1,w_2\in\mathbb{R}^m$, $b_2$ is a scalar, and $\sigma(z)=(1+e^{-z})^{-1}$. The logistic baseline uses $z=Xw+b\mathbf1$. Both classify as 1 at probabilities of at least 0.5. For each model, the mean Bernoulli negative log-likelihood with optional L2 weight decay is
+
+$$
+J=\frac1n\sum_{i=1}^n \operatorname{softplus}((1-2y_i)z_i)
+  +\frac{\lambda}{2}\sum_{W\text{ a weight array}}\lVert W\rVert_F^2 .
+$$
+
+The loss follows by taking the negative log of $p_i^{y_i}(1-p_i)^{1-y_i}$. Biases are unpenalized. The implementation evaluates softplus $\log(1+e^u)$ with NumPy's stable `logaddexp(0, u)`. It obtains the logit derivative via the stable identity $-\operatorname{expm1}(-\operatorname{softplus}(u))=\sigma(u)$.
+
+Differentiating the mean data loss gives $\delta=(\sigma(z)-y)/n$. Backpropagating through $\tanh$ gives $G=(\delta w_2^\top)\odot(1-H\odot H)$, where $\odot$ is elementwise multiplication. The gradients are
+
+$$
+\nabla_{w_2}J=H^\top\delta+\lambda w_2,\qquad
+\nabla_{b_2}J=\mathbf1^\top\delta,\qquad
+\nabla_{W_1}J=X^\top G+\lambda W_1,\qquad
+\nabla_{b_1}J=G^\top\mathbf1 .
+$$
+
+For logistic regression, $\nabla_w J=X^\top\delta+\lambda w$ and $\nabla_b J=\mathbf1^\top\delta$. Full-batch gradient descent updates every parameter by subtracting $0.2$ times its gradient. We initialize weights with Glorot uniform draws and biases at zero. On a seven-example, three-feature problem, central differences with $\epsilon=10^{-5}$ checked all 4 logistic parameters and all 21 width-4 network parameters with both $\lambda=0$ and $\lambda=0.05$. The worst absolute gradient error was $1.06\times10^{-11}$ against a $10^{-7}$ tolerance. See the [numerical checks](results/protocol.json).
+
+## Experimental protocol
+
+| Dataset | Features and target | Training reservoir / validation / test |
+|---|---|---:|
+| Noisy XOR | Two uniform features in $[-1,1]$. The label is 1 for opposite signs, with independent 10% label flips. Bayes accuracy is 90%. | 4,096 / 256 / 2,048 |
+| WDBC | All 30 scikit-learn numeric features, with malignant mapped to 1. The initial split is stratified. | 341 / 114 / 114 |
+
+Five data seeds give five random permutations of each training reservoir. Training sizes 32, 96 and 256 are nested prefixes within a data seed. Three initialization seeds are crossed with each data seed, giving 15 runs per condition. Related experiments reuse the same examples and initialization seed. Each subset is standardized using its own training means and standard deviations. The features and labels in the fixed validation and test pools are held out from training. Test scores are computed after each run's model or hyperparameter selection. The [data notes](data/README.md) document provenance and the code maps results to specific seeds.
+
+The primary sweep compares logistic regression and widths 2, 8 and 32. Accuracy uses a probability threshold of 0.5. Reported losses are unpenalized mean binary cross-entropy on each split. Tables report means across 15 runs. Figure error bars show one sample standard deviation across the five data-seed means after averaging over initializations. These describe variability under the chosen splits and seeds. They are not confidence intervals for new validation or test populations.
+
+Unregularized and weight-decay fits use a training-objective gradient norm threshold of 0.005 with an 800-update cap. Fits at the cap are labeled accordingly. Per run, weight decay chooses $\lambda\in\{0.0005,0.005,0.05\}$ by minimum validation cross-entropy at the candidate terminal iterate. Early stopping checks validation loss at initialization and after every update. An improvement greater than $0.0002$ resets the 35-check patience counter. At patience expiry or the shared 800-update cap, the earliest checkpoint with the lowest observed validation loss is restored. The norm rule is disabled for early stopping so its stopping decision follows the validation trajectory. The saved curves contain every fifth checkpoint and the terminal checkpoint.
+
+## Capacity and training set size
+
+![Test accuracy and cross-entropy by sample size and hidden width](results/figures/capacity.svg)
+
+| Dataset | Training size | Logistic test accuracy / loss | Width 8 | Width 32 |
+|---|---:|---:|---:|---:|
+| Noisy XOR | 32 | 45.6% / 0.747 | 76.3% / 0.591 | 75.8% / 0.583 |
+| Noisy XOR | 96 | 47.3% / 0.706 | 81.7% / 0.462 | 82.6% / 0.460 |
+| Noisy XOR | 256 | 50.9% / 0.700 | 83.5% / 0.442 | 84.5% / 0.440 |
+| WDBC | 32 | 94.6% / 0.218 | 94.0% / 0.219 | 94.0% / 0.225 |
+| WDBC | 96 | 95.4% / 0.118 | 94.3% / 0.148 | 94.6% / 0.142 |
+| WDBC | 256 | 97.1% / 0.084 | 95.8% / 0.109 | 96.0% / 0.084 |
+
+On XOR at $n=256$, moving from 2 to 8 hidden units increased accuracy from 73.6% to 83.5%. Moving from 8 to 32 added about one percentage point. Holding width 32 fixed, expanding the training set from 32 to 256 examples raised mean accuracy by 8.7 percentage points and cut mean cross-entropy by 0.144. The lower cross-entropy at width 32 than width 8 at $n=32$ coexists with slightly lower accuracy because cross-entropy also evaluates the assigned probabilities. On WDBC the linear baseline already separates most held-out cases, and higher width under this unregularized protocol adds no consistent test gain.
+
+## Regularization
+
+![Regularization test loss and matched training and validation curves](results/figures/regularization.svg)
+
+| Dataset | Training size | Unregularized test loss | Weight decay | Early stopping |
+|---|---:|---:|---:|---:|
+| Noisy XOR | 32 | 0.583 | **0.534** | 0.613 |
+| Noisy XOR | 256 | 0.440 | 0.440 | 0.530 |
+| WDBC | 32 | 0.225 | 0.153 | **0.139** |
+| WDBC | 256 | 0.084 | 0.078 | **0.070** |
+
+At small sample size on XOR, every weight-decay run selected $\lambda=0.005$. Mean held-out accuracy was 75.6%, close to unregularized accuracy of 75.8%, while probability loss fell by 0.049. Early stopping on the same task chose an average of 144 updates at $n=32$, and its mean training and test losses were both higher than those at the terminal unregularized iterate. The validation plateau under this patience setting sometimes preceded learning the nonlinear boundary. On WDBC with 32 examples, both methods improved mean test loss and early stopping increased mean accuracy from 94.0% to 95.0%. The figure pairs curves from the same data and initialization seed within each setting to illustrate individual training paths alongside the multi-run test summaries.
+
+## Random-label control
+
+![Train and held-out accuracy when labels are independently randomized](results/figures/random_labels.svg)
+
+The random controls keep the same features, sample memberships, and initial weights. Training, validation, and test labels are drawn independently from $\operatorname{Bernoulli}(0.5)$ using separate streams. Each data seed fixes one draw per split for all paired model comparisons. Under this null, expected test accuracy is 50% because predictions cannot depend on independent test labels.
+
+| Dataset | Training size | Width-32 random-label train accuracy | Random-label test accuracy | Random-label test loss |
+|---|---:|---:|---:|---:|
+| Noisy XOR | 32 | 74.8% | 49.6% | 1.009 |
+| Noisy XOR | 96 | 64.4% | 50.2% | 0.741 |
+| WDBC | 32 | 100.0% | 49.8% | 2.470 |
+| WDBC | 96 | 100.0% | 49.2% | 1.661 |
+
+The real-data feature matrix supported complete memorization at these sizes under the implemented width-32 training regime. At $n=32$, logistic regression on the same randomized WDBC data fit 92.3% of assignments, which is plausible with 30 input features and a bias. The random-label test loss of 2.470 for the width-32 model is far above the $\log 2\approx0.693$ loss of predicting 0.5. It assigns confident probabilities to outcomes independent of the inputs. On the two-dimensional synthetic features, the same width and optimizer only partially fit random labels within the cap. The control measures achieved fit under each protocol, so it cannot establish the maximum number of arbitrary labels any architecture could fit.
+
+## Compute budgets and controlled diagnoses
+
+![Test loss and estimated affine work under both budget rules](results/figures/budget.svg)
+
+At $n=96$ for each dataset, one checkpoint includes a full training forward and gradient pass plus one validation forward pass. The affine multiply-accumulate count per checkpoint is $(2n+n_v)d$ for logistic regression and $(2n+n_v)m(d+1)$ for the network, where $n_v$ is validation size. This counts the matrix/vector contractions for both affine layers and their weight gradients. Biases, elementwise operations, logging, final scoring and data prep are excluded. This is an architecture-sensitive compute proxy, not elapsed time.
+
+The common ceiling is 181 checkpoints of width 8 on the same dataset, or 1,946,112 affine terms on XOR and 13,735,728 on WDBC. Each model takes the largest integer number of full updates whose checkpoints fit, counting both the initial and terminal checkpoint. Width 32 thus receives 44 updates, width 8 receives 180, and width 2 gets 723. The other regime uses the gradient norm and 800-update cap defined above. On XOR, the fixed budget yielded 74.6% mean test accuracy for width 8 and 49.4% for width 32. Under the gradient rule with cap, width 32 reached 82.6% after 800 updates on all runs, using about 17.7 times its fixed-budget ceiling. On WDBC the width-32 model reached 96.4% under the fixed budget and 94.6% under the gradient rule with cap. Extra training can lower training loss while hurting generalization.
+
+![Three matched changes for optimization, representation and overfitting](results/figures/diagnostic.svg)
+
+| Diagnosis | Controlled change | Mean training loss | Mean validation loss | Mean test loss |
+|---|---|---:|---:|---:|
+| Optimization, XOR with $n=256$ | Same width 32, seed, learning rate and data. Increase allowance from 8 to 800 updates. | 0.689 → 0.379 | 0.701 → 0.422 | 0.702 → 0.440 |
+| Representation, XOR with $n=256$ | Replace the linear model with width 32 and use the same stopping protocol and data. | 0.687 → 0.379 | 0.701 → 0.422 | 0.700 → 0.440 |
+| Overfitting, WDBC with $n=32$ | Same width 32 and starting weights. Use the validation-selected checkpoint. | 0.002 → 0.035 | 0.250 → 0.166 | 0.225 → 0.139 |
+
+The first change improves fit and held-out performance with the same model class, isolating the effect of insufficient updates in the short run. The longer XOR fit is still capped, with mean terminal gradient norm 0.0168. For the second change, all 15 logistic fits meet the gradient threshold. The population logistic objective is convex and both feature-label covariances vanish by XOR symmetry. The gradient at zero weights and bias is therefore zero, giving the population optimum of 0.5 everywhere. The converged linear runs and the improvement from nonlinear features support a representation limit. In the third change validation and test cross-entropy improve while training cross-entropy rises. The competing log-loss movements under matched initialization support overfitting as the diagnosis.
+
+## Limits and reproducibility
+
+The conclusions apply to these two datasets, the chosen full-batch optimizer and learning rate, the tested widths and sample sizes, and the fixed validation and test pools. The five data repetitions resample within a common reservoir. Repeating the outer split would measure another source of variation, especially for WDBC with 114 test cases. Values at the update cap establish performance under finite training. The compute comparison omits implementation-dependent costs. WDBC is used here as a benchmark for the coursework.
+
+The [repository README](README.md) gives run commands. The [run table](results/runs.csv), [regularization curves](results/curves.csv), [validation tuning grid](results/tuning.csv), and [protocol metadata](results/protocol.json) retain the evidence behind the report. The archived run used Python 3.14.6, NumPy 2.5.2, scikit-learn 1.9.0, Matplotlib 3.11.1, and threadpoolctl 3.6.0 with one BLAS thread.
