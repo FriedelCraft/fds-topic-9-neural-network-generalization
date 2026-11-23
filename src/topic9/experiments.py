@@ -28,6 +28,7 @@ GRADIENT_TOL = 0.005
 DECAYS = (0.0005, 0.005, 0.05)
 PATIENCE = 35
 MIN_DELTA = 0.0002
+EXTENDED_STEPS = 3000
 REFERENCE_WIDTH = 8
 REFERENCE_STEPS = 180
 CURVE_INTERVAL = 5
@@ -68,6 +69,7 @@ def cases() -> list[Case]:
         (
             replace(wide, condition="optimization_short", budget="fixed"),
             replace(wide, condition="optimization_long"),
+            replace(wide, condition="optimization_extended"),
             replace(wide, condition="representation_linear", width=0),
             replace(wide, condition="representation_wide"),
             replace(overfit, condition="overfit_unregularized"),
@@ -87,6 +89,8 @@ def affine_work_per_checkpoint(width: int, features: int, n_train: int, n_val: i
 def limits(case: Case, features: int, n_val: int) -> tuple[int, float | None, int | None]:
     if case.condition == "optimization_short":
         return 8, None, None
+    if case.condition == "optimization_extended":
+        return EXTENDED_STEPS, GRADIENT_TOL, None
     if case.budget == "convergence":
         return MAX_STEPS, GRADIENT_TOL, None
     ceiling = (REFERENCE_STEPS + 1) * affine_work_per_checkpoint(
@@ -200,7 +204,7 @@ def run(output: Path, quick: bool = False) -> None:
         quick=quick, data_seeds=data_seeds, init_seeds=init_seeds, widths=WIDTHS,
         train_sizes=TRAIN_SIZES, learning_rate=LEARNING_RATE, max_steps=MAX_STEPS,
         gradient_tolerance=GRADIENT_TOL, decays=DECAYS, patience=PATIENCE,
-        min_delta=MIN_DELTA, reference_width=REFERENCE_WIDTH, reference_steps=REFERENCE_STEPS,
+        min_delta=MIN_DELTA, extended_steps=EXTENDED_STEPS, reference_width=REFERENCE_WIDTH, reference_steps=REFERENCE_STEPS,
         curve_interval=CURVE_INTERVAL,
         n_runs=len(runs), gradient_checks=checks,
     )

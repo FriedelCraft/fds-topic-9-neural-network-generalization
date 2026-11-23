@@ -33,10 +33,11 @@
   ],
   "patience": 35,
   "min_delta": 0.0002,
+  "extended_steps": 3000,
   "reference_width": 8,
   "reference_steps": 180,
   "curve_interval": 5,
-  "n_runs": 1350,
+  "n_runs": 1365,
   "gradient_checks": {
     "width=0, decay=0": {
       "parameters_checked": 4,
