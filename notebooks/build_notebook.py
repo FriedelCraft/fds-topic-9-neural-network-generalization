@@ -73,7 +73,8 @@ Wisconsin Diagnostic Breast Cancer (WDBC) dataset. Hidden width and training-set
 runs. Weight decay and early stopping are compared with validation-based selection, memorization is tested with random
 labels, and an equal-compute budget is compared with a capped convergence rule, supported by measured runtime and a
 convergence study. On noisy XOR with 256 examples, the width-32 network reaches 84.5% test accuracy against 50.9% for
-logistic regression, while on WDBC the linear baseline matches the networks. The width-32 network fits random WDBC
+logistic regression, while on WDBC logistic regression has the highest mean accuracy in the unregularized capacity
+sweep. The width-32 network fits random WDBC
 labels completely with held-out accuracy near 50%. Early stopping lowers WDBC test loss but often stops near
 initialization on XOR, and estimated work does not predict runtime across model widths.
 
@@ -324,8 +325,8 @@ To measure memorization, the training, validation and test labels are replaced b
 $\operatorname{Bernoulli}(0.5)$, using a separate random stream for each split, while features, sample membership and
 initial weights stay fixed. Each data seed fixes one draw per split for all paired model comparisons. A model cannot use
 features to predict independent test labels, so expected test accuracy is 50%, and any gap between training and
-held-out accuracy measures memorization of the training labels. A separate audit checks that the drawn labels are
-unrelated to the features and to one another across splits.
+held-out accuracy measures memorization of the training labels. A separate audit examines the correlations
+between the drawn labels and the features and between the labels of different splits.
 
 ### 2.5 Compute budgets and diagnostic comparisons
 
@@ -339,7 +340,7 @@ whose checkpoints, counting the initial and the terminal one, fit under the cost
 dataset. Under the gradient rule, training stops when the gradient norm reaches 0.005 or after 800 updates.
 
 Three controlled changes separate the possible causes of a poor fit, each holding data, seeds and learning rate fixed.
-For optimization, a width-32 network on XOR with 256 examples is trained for 8, 800 and 3,000 updates. For
+For optimization, a width-32 network on XOR with 256 examples is trained with update caps of 8, 800 and 3,000. For
 representation, the linear model is replaced by the width-32 network on the same task. For overfitting, the unregularized
 terminal iterate on WDBC with 32 examples is compared with the validation-selected checkpoint from the same starting
 weights.
@@ -554,7 +555,9 @@ md(r"""
 
 The table gives the median training time per matched run (five matched runs, three repeats each) and the time per
 checkpoint under both budget rules. The fits that follow compare how well estimated work, the number of checkpoints, or
-both predict measured time. Absolute times depend on the machine, so only the comparisons between conditions carry over.
+both predict measured time. The errors in the cost-model table are fit errors on the same 16 conditions used to fit the
+models, not out-of-sample predictions. Absolute times depend on the machine, so only the comparisons between conditions
+carry over.
 """)
 
 code(r"""
@@ -629,16 +632,16 @@ md(r"""
 This project examined how hidden width, training-set size, regularization, training budget and stopping rules affect the
 generalization of a one-hidden-layer network, using a NumPy implementation whose gradients agree with finite
 differences to $1.06\times10^{-11}$. On noisy XOR the network overcomes the limit of the linear model, reaching 84.5% test
-accuracy at 256 examples against 50.9%, with most of the gain arriving by width 8, whereas on WDBC the linear baseline is
-as accurate as any network. Validation-based selection improved WDBC loss through both weight decay and early stopping,
+accuracy at 256 examples against 50.9%, with most of the gain arriving by width 8, whereas on WDBC logistic regression
+had the highest mean accuracy in the unregularized capacity sweep. Validation-based selection improved WDBC loss through both weight decay and early stopping,
 but early stopping on XOR often halted near initialization and lowered accuracy. The width-32 network fit random WDBC
 labels completely while held-out accuracy stayed near 50%, so training fit alone says little about generalization. The
 compute comparisons show that the stopping rule matters as much as the model: at equal estimated work the widest XOR
-network is under-trained, the gradient-norm rule behaves as a fixed 800-update budget for most of the noisy-XOR network
-runs, although several WDBC runs converge before the cap, and longer training lowers training loss without improving
+network is under-trained, the gradient-norm rule behaves as a fixed 800-update budget for the noisy-XOR networks at
+widths 8 and 32, where every run reached the cap, although several WDBC runs converge before it, and longer training lowers training loss without improving
 held-out loss. Estimated affine work orders runs within a model but not
-across widths, where measured runtime differed by factors of 10.5 and 8.5 at equal estimated work, and the update cap and
-learning rate trade off through their product until the step size becomes large. These conclusions hold for two datasets,
+across widths, where measured runtime differed by factors of 10.5 and 8.5 at equal estimated work, and, in the matched noisy-XOR
+settings tested, the update cap and learning rate trade off through their product until the step size becomes large. These conclusions hold for two datasets,
 full-batch gradient descent at the stated learning rates, the tested widths and sample sizes and the fixed validation and
 test pools, and the timings come from a single machine.
 
