@@ -82,7 +82,10 @@ def prepare_split(
     x_train = dataset.x_train_pool[indices]
     center = x_train.mean(axis=0)
     std = x_train.std(axis=0)
-    scale = np.where(std > 0.0, std, 1.0)
+    # Rounding the mean of identical decimals can give a constant column a tiny positive SD.
+    constant = np.all(x_train == x_train[0], axis=0)
+    center[constant] = x_train[0, constant]
+    scale = np.where((std > 0.0) & ~constant, std, 1.0)
 
     y_train_pool = dataset.y_train_pool
     y_val = dataset.y_val
