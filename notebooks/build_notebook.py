@@ -270,7 +270,8 @@ Each dataset has a training reservoir and fixed validation and test pools. Five 
 permutations of each reservoir, and training sizes 32, 96 and 256 are nested prefixes within a data seed. Three
 initialization seeds are crossed with each data seed, which gives 15 runs per condition. Related experiments reuse the
 same examples and initialization seed, so comparisons between models are paired. Each subset is standardized with its own
-training means and standard deviations, and test scores are computed after each run's model or hyperparameter selection.
+training means and standard deviations (a constant feature keeps a unit scale), and test scores are computed after each
+run's model or hyperparameter selection.
 Accuracy uses a threshold of 0.5, and reported losses are unpenalized mean binary cross-entropy. Tables report means
 across the 15 runs, and figure error bars show one sample standard deviation across the five data-seed means after
 averaging over initializations. They describe variability under the chosen splits and seeds and are not confidence
@@ -476,7 +477,8 @@ correct test predictions is exactly $\operatorname{Binomial}(n_\text{test},0.5)$
 random-label runs fall inside the central 95% interval and how many fit every training label. The label audit checks that
 the largest absolute feature-label correlation of each draw stays below a Bonferroni-style threshold. One width-2 WDBC
 random-label fit ($n=96$) stops almost exactly at the gradient threshold, so a rerun on another machine can count 230 runs
-inside the interval where the archived results have 229.
+inside the interval where the archived results have 229. Models share label draws across conditions, and the two datasets
+reuse the same label seeds, so this count is descriptive and not a formal test.
 """)
 
 code(r"""
@@ -641,10 +643,11 @@ full-batch gradient descent at the stated learning rates, the tested widths and 
 test pools, and the timings come from a single machine.
 
 The source code, results and report for this project are in the project repository:
-[""" + REPOSITORY + """](""" + REPOSITORY + """). After installing the package from a clone with `pip install -e .`, the
-commands `python -m topic9.experiments`, `python -m topic9.benchmark`, `python -m topic9.sensitivity` and
-`python -m topic9.figures results` reproduce the experiments, the runtime benchmark, the convergence study and the
-figures.
+[""" + REPOSITORY + """](""" + REPOSITORY + """). After installing the package from a clone with `pip install -e .`,
+running `python -m topic9.experiments`, `python -m topic9.capacity`, `python -m topic9.random_labels`,
+`python -m topic9.benchmark`, `python -m topic9.sensitivity` and `python -m topic9.figures`, each with an output
+directory such as `reproduced-results`, reproduces the experiments, the derived summary tables, the runtime benchmark,
+the convergence study and the figures.
 """)
 
 notebook = new_notebook(cells=cells)
