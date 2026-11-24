@@ -102,3 +102,59 @@ class RandomLabelTests(unittest.TestCase):
             self.assertAlmostEqual(lo + hi, 1.0)
             wider = sum(comb(n, k) for k in range(k_lo + 1, k_hi)) / 2**n
             self.assertLess(wider, 0.95)
+
+
+class RandomLabelSummaryValidationTests(unittest.TestCase):
+    """The summary must fail loudly rather than silently drop or double-count runs."""
+
+    def setUp(self):
+        import csv
+        import shutil
+        import tempfile
+        from pathlib import Path
+
+        source = Path(__file__).resolve().parents[1] / "results"
+        self.dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.dir)
+        shutil.copy(source / "protocol.json", self.dir / "protocol.json")
+        with (source / "runs.csv").open(encoding="utf-8", newline="") as stream:
+            reader = csv.DictReader(stream)
+            self.fields = reader.fieldnames
+            self.rows = [row for row in reader if row["experiment"] == "random_labels"]
+
+    def summarize(self, rows):
+        import csv
+
+        from topic9.random_labels import summarize
+
+        with (self.dir / "runs.csv").open("w", encoding="utf-8", newline="") as stream:
+            writer = csv.DictWriter(stream, fieldnames=self.fields, lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(rows)
+        return list(summarize(self.dir))
+
+    def test_complete_runs_summarize(self):
+        self.assertEqual(len(self.summarize(self.rows)), 32)
+
+    def test_duplicate_cannot_hide_missing_run(self):
+        target = self.rows[0]
+        same_condition = [r for r in self.rows if all(
+            r[k] == target[k] for k in ("dataset", "train_size", "width", "labels"))]
+        rows = [r for r in self.rows if r is not same_condition[1]] + [same_condition[0]]
+        self.assertEqual(len(rows), len(self.rows))
+        with self.assertRaisesRegex(ValueError, "Duplicate"):
+            self.summarize(rows)
+
+    def test_missing_run_is_reported(self):
+        with self.assertRaisesRegex(ValueError, "Missing 1 "):
+            self.summarize(self.rows[1:])
+
+    def test_missing_training_size_is_reported(self):
+        rows = [r for r in self.rows if r["train_size"] != "96"]
+        with self.assertRaisesRegex(ValueError, r"training sizes \[96\]"):
+            self.summarize(rows)
+
+    def test_unexpected_seed_is_reported(self):
+        extra = dict(self.rows[0], init_seed="999")
+        with self.assertRaisesRegex(ValueError, "unexpected"):
+            self.summarize(self.rows + [extra])

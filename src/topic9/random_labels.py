@@ -11,7 +11,6 @@ import argparse
 import csv
 import json
 from collections import defaultdict
-from itertools import product
 from math import exp, lgamma, log, sqrt
 from pathlib import Path
 from statistics import NormalDist, mean, stdev
@@ -19,7 +18,7 @@ from statistics import NormalDist, mean, stdev
 import numpy as np
 
 from .data import make_dataset, prepare_split
-from .experiments import DATASETS, random_label_seed
+from .experiments import DATASETS, Case, cases, random_label_seed
 
 LEVEL = 0.95
 
@@ -75,41 +74,65 @@ def audit(data_seeds, train_size: int):
                 )
 
 
+def expected_conditions() -> list[Case]:
+    """Random-label conditions in the experiment design, in run order."""
+    return [case for case in cases() if case.experiment == "random_labels"]
+
+
 def read_runs(path):
-    runs = defaultdict(list)
+    """Map (condition, data seed, init seed) to its row, rejecting duplicates."""
+    runs = {}
     with path.open(encoding="utf-8", newline="") as source:
         for row in csv.DictReader(source):
-            if row["experiment"] == "random_labels":
-                key = (row["dataset"], int(row["train_size"]), int(row["width"]), row["labels"])
-                runs[key].append(row)
+            if row["experiment"] != "random_labels":
+                continue
+            case = Case(
+                experiment=row["experiment"], dataset=row["dataset"], width=int(row["width"]),
+                train_size=int(row["train_size"]), regularization=row["regularization"],
+                labels=row["labels"], budget=row["budget"], condition=row["condition"],
+            )
+            key = (case, int(row["data_seed"]), int(row["init_seed"]))
+            if key in runs:
+                raise ValueError(f"Duplicate random-label run: {key}")
+            runs[key] = row
     return runs
+
+
+def validate(runs, conditions, data_seeds, init_seeds) -> None:
+    """Require every condition × (data seed, init seed) pair exactly once and nothing else."""
+    expected = {(case, d, i) for case in conditions for d in data_seeds for i in init_seeds}
+    if missing := expected - runs.keys():
+        sizes = sorted({case.train_size for case, _, _ in missing})
+        raise ValueError(f"Missing {len(missing)} random-label runs (training sizes {sizes}), "
+                         f"e.g. {min(missing, key=repr)}")
+    if unexpected := runs.keys() - expected:
+        raise ValueError(f"Found {len(unexpected)} unexpected random-label runs, "
+                         f"e.g. {min(unexpected, key=repr)}")
 
 
 def summarize(results_dir):
     """Per condition: training fit, held-out accuracy, and how many runs sit inside the chance interval."""
     protocol = json.loads((results_dir / "protocol.json").read_text(encoding="utf-8"))
+    data_seeds, init_seeds = protocol["data_seeds"], protocol["init_seeds"]
+    conditions = expected_conditions()
     runs = read_runs(results_dir / "runs.csv")
-    expected = len(protocol["data_seeds"]) * len(protocol["init_seeds"])
+    validate(runs, conditions, data_seeds, init_seeds)
     n_test = {name: len(make_dataset(name).y_test) for name in DATASETS}
-    sizes = sorted({key[1] for key in runs})
-    for dataset, size, width, labels in product(DATASETS, sizes, protocol["widths"], ("clean", "random")):
-        rows = runs[dataset, size, width, labels]
-        if len(rows) != expected:
-            raise ValueError(f"Expected {expected} runs for {(dataset, size, width, labels)}, found {len(rows)}")
-        by_seed = defaultdict(list)
-        for row in rows:
-            by_seed[row["data_seed"]].append(row)
+    for case in conditions:
+        by_seed = {d: [runs[case, d, i] for i in init_seeds] for d in data_seeds}
+        rows = [row for group in by_seed.values() for row in group]
         seed_means = {metric: [mean(float(r[metric]) for r in group) for group in by_seed.values()]
                       for metric in ("train_accuracy", "test_accuracy")}
         test = [float(r["test_accuracy"]) for r in rows]
-        summary = dict(dataset=dataset, train_size=size, width=width, labels=labels, n_runs=len(rows))
+        summary = dict(dataset=case.dataset, train_size=case.train_size, width=case.width,
+                       labels=case.labels, n_runs=len(rows))
         for metric in ("train_accuracy", "test_accuracy"):
             summary[f"{metric}_mean"] = f"{100 * mean(seed_means[metric]):.2f}"
             values = seed_means[metric]
             summary[f"{metric}_sd"] = f"{100 * stdev(values):.2f}" if len(values) > 1 else ""
         summary["runs_fitting_all_train_labels"] = sum(float(r["train_accuracy"]) == 1.0 for r in rows)
         summary["generalization_gap_pp"] = f"{100 * (mean(float(r['train_accuracy']) for r in rows) - mean(test)):.2f}"
-        lo, hi = binomial_interval(n_test[dataset]) if labels == "random" else (None, None)
+        lo, hi = binomial_interval(n_test[case.dataset]) if case.labels == "random" else (None, None)
         summary["chance_interval"] = f"[{100 * lo:.1f}, {100 * hi:.1f}]" if lo is not None else ""
         summary["runs_inside_chance_interval"] = (sum(lo <= t <= hi for t in test) if lo is not None else "")
         summary["test_accuracy_min"] = f"{100 * min(test):.2f}"
@@ -129,9 +152,8 @@ def main():
     parser.add_argument("results", type=Path, nargs="?", default=Path("results"))
     args = parser.parse_args()
     protocol = json.loads((args.results / "protocol.json").read_text(encoding="utf-8"))
-    sizes = sorted({int(r["train_size"]) for rows in read_runs(args.results / "runs.csv").values() for r in rows})
-    audit_rows = list(audit(protocol["data_seeds"], max(sizes)))
     summary_rows = list(summarize(args.results))
+    audit_rows = list(audit(protocol["data_seeds"], max(c.train_size for c in expected_conditions())))
     write_csv(args.results / "random_labels_audit.csv", audit_rows)
     write_csv(args.results / "random_labels_summary.csv", summary_rows)
     print(f"Wrote {len(audit_rows)} label audits and {len(summary_rows)} condition summaries to {args.results}.")
