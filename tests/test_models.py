@@ -83,6 +83,21 @@ class ModelTests(unittest.TestCase):
         np.testing.assert_allclose(grad["w"], [1.0])
         self.assertEqual(grad["b"], 0)
 
+    def test_confident_correct_predictions_keep_small_gradients(self):
+        x = np.array([[1.0]])
+        small = np.exp(-40.0)
+        for label, logit in ((1, 40.0), (0, -40.0)):
+            with self.subTest(label=label):
+                params = {"w": np.array([logit]), "b": np.array(0.0)}
+                y = np.array([label])
+                loss, grad = loss_and_grad(params, x, y)
+                expected = (1 - 2 * label) * small / (1 + small)
+                # Zero absolute tolerance also catches cancellation to zero.
+                np.testing.assert_allclose(loss, np.log1p(small), rtol=1e-12, atol=0)
+                np.testing.assert_allclose(grad["w"], [expected], rtol=1e-12, atol=0)
+                np.testing.assert_allclose(grad["b"], expected, rtol=1e-12, atol=0)
+                self.assertEqual(metrics(params, x, y)["accuracy"], 1.0)
+
     def test_weight_decay_penalizes_weights_only(self):
         params = {"w": np.array([2.0]), "b": np.array(3.0)}
         x = np.array([[-1.0], [1.0]])
