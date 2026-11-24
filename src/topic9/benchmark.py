@@ -154,11 +154,15 @@ def cost_models(summary):
     return models
 
 
-def run(output: Path, quick: bool = False) -> None:
+def run(output: Path, quick: bool = False, init_seeds=None, repeats: int | None = None) -> None:
+    """Time the matched runs. By default, all seed pairs and five repeats (one pair, two repeats if quick).
+
+    ``init_seeds`` and ``repeats`` override the defaults, for example to shorten the study.
+    """
     output.mkdir(parents=True, exist_ok=True)
     data_seeds = DATA_SEEDS[:1] if quick else DATA_SEEDS
-    init_seeds = INIT_SEEDS[:1] if quick else INIT_SEEDS
-    repeats = 2 if quick else REPEATS
+    init_seeds = tuple(init_seeds) if init_seeds is not None else (INIT_SEEDS[:1] if quick else INIT_SEEDS)
+    repeats = repeats if repeats is not None else (2 if quick else REPEATS)
     rows = measure(data_seeds, init_seeds, repeats)
     summary = summarize(rows)
     write_csv(output / "runtime.csv", rows)
@@ -182,9 +186,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path("results"))
     parser.add_argument("--quick", action="store_true", help="One seed pair and two repeats.")
+    parser.add_argument("--init-seeds", type=int, help="Use only the first N initialization seeds.")
+    parser.add_argument("--repeats", type=int, help="Timed repeats per matched run.")
     args = parser.parse_args()
+    init_seeds = INIT_SEEDS[:args.init_seeds] if args.init_seeds else None
     with threadpool_limits(limits=1, user_api="blas"):
-        run(args.output, quick=args.quick)
+        run(args.output, quick=args.quick, init_seeds=init_seeds, repeats=args.repeats)
 
 
 if __name__ == "__main__":

@@ -25,6 +25,16 @@ class BenchmarkTests(unittest.TestCase):
             self.assertLessEqual(fixed[(dataset, 32)], fixed[(dataset, 8)])
             self.assertGreater(fixed[(dataset, 32)], 0.99 * fixed[(dataset, 8)])
 
+    def test_run_accepts_shorter_settings(self):
+        import json
+        from topic9.benchmark import run as run_benchmark
+        with tempfile.TemporaryDirectory() as directory:
+            run_benchmark(Path(directory), quick=True, init_seeds=(11, 29), repeats=1)
+            metadata = json.loads((Path(directory) / "runtime.json").read_text(encoding="utf-8"))
+            lines = (Path(directory) / "runtime.csv").read_text(encoding="utf-8").splitlines()
+        self.assertEqual((metadata["repeats"], metadata["init_seeds"]), (1, [11, 29]))
+        self.assertEqual(len(lines) - 1, 16 * 2)        # one data seed x two initialization seeds x one repeat
+
     def test_summary_and_cost_models(self):
         rows = []
         for width, steps in ((0, 10), (2, 40), (8, 90), (32, 400)):

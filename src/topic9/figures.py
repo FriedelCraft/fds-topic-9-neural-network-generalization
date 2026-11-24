@@ -312,11 +312,14 @@ def _runtime_conditions(rows):
 def _runtime(rows, path):
     """Plot measured time against estimated affine work for every matched condition."""
     conditions, work = _runtime_conditions(rows)
+    repeats = max(row["repeat"] for row in rows)
+    matched = len({(row["data_seed"], row["init_seed"]) for row in rows})
+    times = {1: "once", 2: "twice"}.get(repeats, f"{ {3: 'three', 4: 'four', 5: 'five'}.get(repeats, repeats) } times")
 
     fig, axes = plt.subplots(1, len(DATASETS), figsize=(11, 5.4), sharey=True)
     fig.subplots_adjust(left=0.085, right=0.98, top=0.73, bottom=0.16, wspace=0.12)
     _header(fig, "Measured runtime against estimated work",
-            "Each matched run is timed five times. Points are medians over 15 matched runs and bars span the quartiles.",
+            f"Each matched run is timed {times}. Points are medians over {matched} matched runs and bars span the quartiles.",
             "The dashed line marks time proportional to estimated work, at each panel's median seconds per affine term.")
     for ax, (dataset, name) in zip(axes, DATASETS.items()):
         keys = sorted(key for key in conditions if key[0] == dataset)

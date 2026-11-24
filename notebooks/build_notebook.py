@@ -82,7 +82,7 @@ initialization on XOR, and estimated work does not predict runtime across model 
 The notebook runs end to end from any directory and does not need the project repository. It needs Python 3.10 or newer
 with `numpy`, `scikit-learn`, `matplotlib`, `threadpoolctl` and Jupyter. The WDBC data ship with scikit-learn, so
 nothing is downloaded. With `MODE = "full"` the notebook reproduces the archived protocol (15 paired runs per
-condition) in roughly 10 minutes on a laptop, and the numbers quoted in the text refer to that run. With
+condition) in about 5 minutes on a laptop, and the numbers quoted in the text are those of the report. With
 `MODE = "quick"` it uses one seed pair and at most 40 updates and finishes in about a minute. That mode is a smoke test,
 and its numbers are not results.
 """)
@@ -222,7 +222,8 @@ $$\nabla_{w_2}J=H^\top\delta+\lambda w_2,\quad \nabla_{b_2}J=\mathbf 1^\top\delt
 
 Training is full-batch gradient descent with learning rate 0.2, from Glorot uniform weights and zero biases. The next
 cell compares every analytic gradient with central finite differences on a seven-example problem, with and without
-weight decay, and then repeats the check on an independent random problem.
+weight decay, repeats the check on an independent random problem, and then extends it to logistic regression and to
+widths 2, 8 and 32 with 2 and 30 input features, nonzero biases, and weight decay switched off and on.
 """)
 
 code(r"""
@@ -236,6 +237,24 @@ x = rng.normal(size=(9, 4)); y = rng.integers(0, 2, size=9).astype(float)
 worst = max(gradient_check(initialize(4, width, seed), x, y, weight_decay=decay)["max_abs_error"]
             for width in (0, 3, 6) for decay in (0.0, 0.03) for seed in (5, 6))
 print(f"Independent check (new data, widths 0/3/6, two initializations): worst absolute error {worst:.2e}")
+
+rng = np.random.default_rng(123)
+y = np.array([0, 1, 1, 0, 1, 0, 1])
+comparisons, worst = 0, 0.0
+for features in (2, 30):
+    x = rng.normal(size=(len(y), features))
+    for width in (0, 2, 8, 32):
+        params = initialize(features, width, 67)
+        for key in params:
+            if key.startswith("b"):
+                params[key][...] = rng.normal(scale=0.2, size=params[key].shape)
+        for decay in (0.0, 0.005):
+            result = gradient_check(params, x, y, weight_decay=decay)
+            comparisons += result["parameters_checked"]
+            worst = max(worst, result["max_abs_error"])
+assert worst < 1e-8
+print(f"Extended check (widths 0/2/8/32, 2 and 30 features, nonzero biases, decay off and on): "
+      f"{comparisons:,} parameter-wise comparisons, worst absolute error {worst:.2e}")
 """)
 
 md(r"""
@@ -327,9 +346,11 @@ weights.
 ### 2.6 Runtime benchmark and convergence study
 
 The runtime benchmark repeats the 16 conditions of the compute comparison, namely both datasets, logistic regression and
-widths 2, 8 and 32, under both budget rules. Each matched run is timed five times after one untimed pass, with
-conditions interleaved within each repeat, garbage collection paused and one BLAS thread. The timed region is the whole
-training call, including the validation score at every checkpoint but excluding data preparation. The convergence study
+widths 2, 8 and 32, under both budget rules. Each matched run is timed after one untimed pass, with conditions
+interleaved within each repeat, garbage collection paused and one BLAS thread. The timed region is the whole training
+call, including the validation score at every checkpoint but excluding data preparation. To keep this stage short, the
+notebook times five matched runs per condition (one per data seed) with three repeats each, whereas the report uses 15
+matched runs and five repeats. The convergence study
 uses the unregularized network on noisy XOR with 256 training examples at widths 8 and 32. The update cap is varied from
 100 to 3,200 at learning rate 0.2, and separately the learning rate is varied from 0.05 to 1.6 at a cap of 800, with the
 same gradient threshold of 0.005 and the same seeds.
@@ -513,12 +534,14 @@ show_figures("diagnostic")
 md(r"""
 ### 3.5 Runtime against estimated work
 
-The table gives the median training time per matched run and the time per checkpoint under both budget rules. The
-fits that follow compare how well estimated work, the number of checkpoints, or both predict measured time.
+The table gives the median training time per matched run (five matched runs, three repeats each) and the time per
+checkpoint under both budget rules. The fits that follow compare how well estimated work, the number of checkpoints, or
+both predict measured time. Absolute times depend on the machine, so only the comparisons between conditions carry over.
 """)
 
 code(r"""
-print(quiet(benchmark.run, RESULTS, quick=QUICK))
+print(quiet(benchmark.run, RESULTS, quick=QUICK, init_seeds=experiments.INIT_SEEDS[:1],
+            repeats=None if QUICK else 3))
 rt = load("runtime_summary.csv")
 by_key = {(r["dataset"], r["width"], r["budget"]): r for r in rt}
 body = []
@@ -593,15 +616,19 @@ as accurate as any network. Validation-based selection improved WDBC loss throug
 but early stopping on XOR often halted near initialization and lowered accuracy. The width-32 network fit random WDBC
 labels completely while held-out accuracy stayed near 50%, so training fit alone says little about generalization. The
 compute comparisons show that the stopping rule matters as much as the model: at equal estimated work the widest XOR
-network is under-trained, the gradient-norm rule behaves as a fixed 800-update budget for the networks, and longer
-training lowers training loss without improving held-out loss. Estimated affine work orders runs within a model but not
+network is under-trained, the gradient-norm rule behaves as a fixed 800-update budget for most of the noisy-XOR network
+runs, although several WDBC runs converge before the cap, and longer training lowers training loss without improving
+held-out loss. Estimated affine work orders runs within a model but not
 across widths, where measured runtime differed by factors of 10.5 and 8.5 at equal estimated work, and the update cap and
 learning rate trade off through their product until the step size becomes large. These conclusions hold for two datasets,
 full-batch gradient descent at the stated learning rates, the tested widths and sample sizes and the fixed validation and
 test pools, and the timings come from a single machine.
 
 The source code, results and report for this project are in the project repository:
-[""" + REPOSITORY + """](""" + REPOSITORY + """).
+[""" + REPOSITORY + """](""" + REPOSITORY + """). After installing the package from a clone with `pip install -e .`, the
+commands `python -m topic9.experiments`, `python -m topic9.benchmark`, `python -m topic9.sensitivity` and
+`python -m topic9.figures results` reproduce the experiments, the runtime benchmark, the convergence study and the
+figures.
 """)
 
 notebook = new_notebook(cells=cells)
