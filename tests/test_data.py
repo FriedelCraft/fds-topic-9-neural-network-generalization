@@ -4,7 +4,7 @@ import unittest
 
 import numpy as np
 
-from topic9.data import make_dataset, prepare_split
+from topic9.data import Dataset, make_dataset, prepare_split
 
 
 class DataTests(unittest.TestCase):
@@ -21,6 +21,17 @@ class DataTests(unittest.TestCase):
         np.testing.assert_allclose(split.x_train, (train - center) / scale)
         np.testing.assert_allclose(split.x_val, (dataset.x_val - center) / scale)
         np.testing.assert_allclose(split.x_test, (dataset.x_test - center) / scale)
+
+    def test_constant_decimal_feature_uses_unit_scale_on_every_split(self):
+        dataset = Dataset(
+            name="constant", x_train_pool=np.full((3, 1), 0.1), y_train_pool=np.zeros(3),
+            x_val=np.array([[0.2]]), y_val=np.zeros(1),
+            x_test=np.array([[0.4]]), y_test=np.zeros(1),
+        )
+        split = prepare_split(dataset, 3, data_seed=17)
+        np.testing.assert_array_equal(split.x_train, np.zeros((3, 1)))
+        np.testing.assert_allclose(split.x_val, [[0.1]])
+        np.testing.assert_allclose(split.x_test, [[0.3]])
 
     def test_random_controls_preserve_matching_rows_and_nested_labels(self):
         dataset = make_dataset("synthetic")

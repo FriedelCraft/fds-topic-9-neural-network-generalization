@@ -9,14 +9,18 @@ Use Python 3.10 or newer. From the repository root, in an activated virtual envi
 ```sh
 python -m pip install -e .
 python -m unittest discover -s tests -v
-python -m topic9.experiments --output results
-python -m topic9.figures results
+python -m topic9.experiments --output reproduced-results
+python -m topic9.capacity reproduced-results
+python -m topic9.random_labels reproduced-results
+python -m topic9.figures reproduced-results
 ```
 
-For an end-to-end check that writes to a separate directory:
+For a faster check, the same workflow uses one seed pair and at most 40 updates per fit.
 
 ```sh
 python -m topic9.experiments --quick --output smoke-results
+python -m topic9.capacity smoke-results
+python -m topic9.random_labels smoke-results
 python -m topic9.figures smoke-results
 ```
 

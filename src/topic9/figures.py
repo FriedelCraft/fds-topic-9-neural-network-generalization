@@ -260,28 +260,32 @@ def _budgets(rows, path):
 
 def _diagnostics(rows, path):
     """Draw one panel per diagnostic contrast."""
+    optimization = [("optimization_short", "8 updates"), ("optimization_long", "Standard cap")]
+    if any(row["condition"] == "optimization_extended" for row in rows):
+        optimization.append(("optimization_extended", "Extended cap"))
     contrasts = (
-        ("Optimization | Synthetic XOR", ("optimization_short", "optimization_long"),
-         ("8 updates", "Capped convergence")),
-        ("Representation | Synthetic XOR", ("representation_linear", "representation_wide"),
-         ("Logistic regression", "32 hidden units")),
-        ("Overfitting | Wisconsin", ("overfit_unregularized", "overfit_early_stopping"),
-         ("Unregularized", "Early stopping")),
+        ("Optimization | Synthetic XOR", optimization),
+        ("Representation | Synthetic XOR", (("representation_linear", "Logistic regression"),
+                                             ("representation_wide", "32 hidden units"))),
+        ("Overfitting | Wisconsin", (("overfit_unregularized", "Unregularized"),
+                                     ("overfit_early_stopping", "Early stopping"))),
     )
     fig, axes = plt.subplots(1, len(contrasts), figsize=(12, 5.3), sharey=True)
     fig.subplots_adjust(left=0.083, right=0.98, top=0.73, bottom=0.16, wspace=0.22)
     _header(fig, "Controlled diagnostic runs", "Training and held-out cross-entropy for each control and intervention.", SPREAD_NOTE)
-    for ax, (title, conditions, tick_labels) in zip(axes, contrasts):
-        groups = [_select(rows, condition=condition) for condition in conditions]
+    for ax, (title, conditions) in zip(axes, contrasts):
+        groups = [_select(rows, condition=condition) for condition, _ in conditions]
+        positions = range(len(groups))
         for offset, metric, label, color, marker in (
             (-0.17, "train_loss", "Training", COLORS[0], "o"),
             (0, "val_loss", "Validation", COLORS[2], "^"),
             (0.17, "test_loss", "Test", COLORS[1], "s"),
         ):
-            _series(ax, (offset, 1 + offset), groups, metric, color=color, label=label, marker=marker, linestyle="none")
+            _series(ax, [x + offset for x in positions], groups, metric,
+                    color=color, label=label, marker=marker, linestyle="none")
         _panel(ax, title, "Cross-entropy" if ax is axes[0] else "")
-        ax.set_xticks((0, 1), tick_labels)
-        ax.set_xlim(-0.42, 1.42)
+        ax.set_xticks(positions, [label for _, label in conditions])
+        ax.set_xlim(-0.42, len(groups) - 0.58)
     axes[0].set_ylim(bottom=0)
     _legend(fig, axes[0], 3, loc=(0.055, 0.79))
     _save(fig, path)
