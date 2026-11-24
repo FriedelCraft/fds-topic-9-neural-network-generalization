@@ -90,6 +90,8 @@ The random controls keep the same features, sample memberships, and initial weig
 
 The real-data feature matrix supported complete memorization at these sizes under the implemented width-32 training regime. At $n=32$, logistic regression on the same randomized WDBC data fit 92.3% of assignments, which is plausible with 30 input features and a bias. The random-label test loss of 2.470 for the width-32 model is far above the $\log 2\approx0.693$ loss of predicting 0.5. It assigns confident probabilities to outcomes independent of the inputs. On the two-dimensional synthetic features, the same width and optimizer only partially fit random labels within the cap. The control measures achieved fit under each protocol, so it cannot establish the maximum number of arbitrary labels any architecture could fit.
 
+The [random-label audit](RANDOM_LABELS.md) confirms that the drawn labels are independent of the features and across splits. Under this construction, each run's test accuracy follows an exact Binomial$(n_{\text{test}},0.5)$ null, and 229 of the 240 random-label runs fall inside its central 95% interval.
+
 ## Compute budgets and controlled diagnoses
 
 ![Test loss and estimated affine work under both budget rules](results/figures/budget.svg)
