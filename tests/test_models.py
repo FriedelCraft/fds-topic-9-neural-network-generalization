@@ -137,6 +137,22 @@ class TrainingTests(unittest.TestCase):
         self.assertLess(result.final_gradient_norm, result.history[0]["gradient_norm"])
         np.testing.assert_array_equal(result.model["w"], self.params["w"])
 
+    def test_patience_restores_best_step_between_logged_updates(self):
+        # With only a bias, the predicted probability rises past the 3/4 validation rate.
+        x = np.zeros((4, 1))
+        y_train = np.ones(4)
+        y_val = np.array([1, 1, 1, 0])
+        args = (self.params, x, y_train, x, y_val)
+        trace = train(*args, learning_rate=1.0, max_steps=4)
+        best = min(trace.history, key=lambda row: row["val_loss"])
+        # Small improvements select a better model even when they do not reset patience.
+        result = train(*args, learning_rate=1.0, max_steps=10, patience=4, min_delta=1.0, log_every=4)
+        self.assertEqual((result.steps, result.stop_reason), (4, "early_stopping"))
+        self.assertEqual([row["step"] for row in result.history], [0, 4])
+        self.assertEqual(best["step"], 3)
+        self.assertEqual(result.selected_step, best["step"])
+        self.assertAlmostEqual(metrics(result.model, x, y_val)["loss"], best["val_loss"])
+
     def test_gradient_rule_can_stop_before_first_update(self):
         result = train(
             self.params, np.zeros_like(self.x), self.y, self.x, self.y,

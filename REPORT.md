@@ -66,14 +66,22 @@ On XOR at $n=256$, moving from 2 to 8 hidden units increased accuracy from 73.6%
 
 ![Regularization test loss and matched training and validation curves](results/figures/regularization.svg)
 
-| Dataset | Training size | Unregularized test loss | Weight decay | Early stopping |
-|---|---:|---:|---:|---:|
-| Noisy XOR | 32 | 0.583 | **0.534** | 0.613 |
-| Noisy XOR | 256 | 0.440 | 0.440 | 0.530 |
-| WDBC | 32 | 0.225 | 0.153 | **0.139** |
-| WDBC | 256 | 0.084 | 0.078 | **0.070** |
+Each cell gives mean test accuracy / cross-entropy over the same 15 seed pairs for the width-32 network.
 
-At small sample size on XOR, every weight-decay run selected $\lambda=0.005$. Mean held-out accuracy was 75.6%, close to unregularized accuracy of 75.8%, while probability loss fell by 0.049. Early stopping on the same task chose an average of 144 updates at $n=32$, and its mean training and test losses were both higher than those at the terminal unregularized iterate. The validation plateau under this patience setting sometimes preceded learning the nonlinear boundary. On WDBC with 32 examples, both methods improved mean test loss and early stopping increased mean accuracy from 94.0% to 95.0%. The figure pairs curves from the same data and initialization seed within each setting to illustrate individual training paths alongside the multi-run test summaries.
+| Dataset | Training size | Unregularized | Weight decay | Early stopping |
+|---|---:|---:|---:|---:|
+| Noisy XOR | 32 | 75.8% / 0.583 | 75.6% / 0.534 | 62.5% / 0.613 |
+| Noisy XOR | 256 | 84.5% / 0.440 | 84.5% / 0.440 | 73.3% / 0.529 |
+| WDBC | 32 | 94.0% / 0.225 | 94.7% / 0.153 | 95.0% / 0.139 |
+| WDBC | 256 | 96.0% / 0.084 | 96.5% / 0.078 | 97.1% / 0.070 |
+
+All 60 weight-decay runs selected the penalty with the lowest terminal validation cross-entropy in the [tuning grid](results/tuning.csv). Early stopping checked validation loss after every update, including those between plotted points. Each run used the test set only after selecting its model.
+
+On noisy XOR with 32 training examples, all 15 weight-decay runs selected $\lambda=0.005$. Weight decay lowered test cross-entropy in 14 of 15 matched runs. After averaging the three paired differences within each data seed, the mean change was −0.049 (sample SD 0.041 across five seeds). Mean accuracy fell by only 0.2 percentage points because cross-entropy also reflects the probability assigned to the observed class. At 256 examples, loss fell in 8 of 15 pairs and both methods averaged 0.440 to three decimals.
+
+Early stopping on XOR selected update 144 on average at 32 examples, but the checkpoints fell into two groups. Eight of 15 runs restored updates 0–7 and the other seven restored updates 242–354. At 256 examples, five runs restored updates 4–9 and the other ten restored updates 460–800. Every run that restored a checkpoint near initialization lost test accuracy against its matched unregularized fit. In those runs the validation plateau triggered patience before the network learned the XOR boundary.
+
+On WDBC with 32 examples, early stopping reduced mean test loss from 0.225 to 0.139 while mean accuracy rose from 94.0% to 95.0%. For weight decay, the three penalties (0.0005, 0.005, 0.05) were selected in 6, 2 and 7 runs at 32 examples, and in 7, 8 and 0 runs at 256 examples. The [run table](results/runs.csv) records the selected checkpoints and penalties for each seed pair.
 
 ## Random-label control
 
