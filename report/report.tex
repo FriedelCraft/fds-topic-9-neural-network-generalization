@@ -8,6 +8,7 @@
 \usepackage{array}
 \usepackage{graphicx}
 \usepackage{caption}
+\usepackage{float}
 \usepackage[hidelinks]{hyperref}
 
 \graphicspath{{figures/}}
@@ -28,7 +29,7 @@ BITS Pilani, K.K. Birla Goa Campus}
 \begin{document}
 \maketitle
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \small
 \begin{tabular}{@{}l l >{\raggedright\arraybackslash}p{9.4cm}@{}}
@@ -84,7 +85,7 @@ For logistic regression, $\nabla_w J=X^\top\delta+\lambda w$ and $\nabla_b J=\on
 
 \subsection{Data and evaluation protocol}
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \small
 \begin{tabular}{@{}l>{\raggedright\arraybackslash}p{8.2cm}r@{}}
@@ -126,13 +127,13 @@ The runtime benchmark repeats the 16 conditions of the compute comparison, namel
 
 \subsection{Capacity and training set size}
 
-\begin{figure}[ht]
+\begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{capacity.pdf}
 \caption{Test accuracy and cross-entropy by sample size and hidden width.}
 \end{figure}
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \small
 \begin{tabular}{@{}lrccc@{}}
@@ -154,13 +155,13 @@ On XOR at $n=256$, going from 2 to 8 hidden units raised accuracy from 73.6\% to
 
 \subsection{Regularization}
 
-\begin{figure}[ht]
+\begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{regularization.pdf}
 \caption{Regularization test loss and matched training and validation curves.}
 \end{figure}
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \small
 \begin{tabular}{@{}lrccc@{}}
@@ -182,13 +183,13 @@ Early stopping on XOR selected update 144 on average at 32 examples, but the che
 
 \subsection{Random-label control}
 
-\begin{figure}[ht]
+\begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{random_labels.pdf}
 \caption{Train and held-out accuracy when labels are independently randomized.}
 \end{figure}
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \small
 \begin{tabular}{@{}lrccc@{}}
@@ -208,7 +209,7 @@ The real-data features allowed complete memorization at these sizes under the wi
 
 \subsection{Compute budgets and diagnoses}
 
-\begin{figure}[ht]
+\begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{budget.pdf}
 \caption{Test loss and estimated affine work under both budget rules.}
@@ -216,7 +217,7 @@ The real-data features allowed complete memorization at these sizes under the wi
 
 Under the common ceiling, width 32 receives 44 updates, width 8 receives 180 and width 2 receives 723. Logistic regression costs much less per update and receives 2,171 updates on XOR and 1,495 on WDBC, more than the 800-update cap of the gradient rule. The gradient rule seldom reaches convergence for the networks. On XOR, widths 8 and 32 stopped at the cap in all 15 runs, with mean terminal gradient norms of 0.016 and 0.017 against the 0.005 threshold, while width 2 stopped at the cap in 13 of 15 runs and converged in the other 2. Logistic regression converged in all 15 runs after 83 updates on average. On WDBC, 6 of 15 runs at widths 8 and 32 and 13 of 15 at width 2 reached the cap, as did all 15 logistic runs. For the networks on XOR this regime therefore works as a fixed 800-update budget, with compute of 1.1, 4.4 and 17.7 times the common ceiling at widths 2, 8 and 32 (on WDBC, 1.1, 4.1 and 15.7, with 0.54 for logistic regression).
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \small
 \begin{tabular}{@{}ll>{\centering\arraybackslash}p{4.4cm}>{\centering\arraybackslash}p{4.4cm}@{}}
@@ -238,13 +239,13 @@ WDBC & 32 & 44, 96.4\% / 0.102 & 710, 94.6\% / 0.142 \\
 
 The budget affects the two datasets differently. On XOR at equal compute, width 32 is the worst network, since 44 updates leave it near its initial loss of about 0.7, and width 8 with 180 updates reaches 74.6\%. A wider network needs more updates here, so its higher cost per update cancels any gain in capacity. Under the longer rule, width 32 reaches 82.6\%, about one point above width 8. On WDBC the fixed budget gives width 32 its best result, 96.4\% accuracy and 0.102 test loss, with training loss of 0.069 against 0.004 under the longer rule. Stopping early probably acts as implicit regularization there, in line with the explicit early stopping above. The WDBC gaps amount to about two of the 114 test cases and are suggestive and not firm.
 
-\begin{figure}[ht]
+\begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{diagnostic.pdf}
 \caption{Three matched changes for optimization, representation and overfitting.}
 \end{figure}
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \small
 \begin{tabular}{@{}>{\raggedright\arraybackslash}p{2.8cm}>{\raggedright\arraybackslash}p{4.3cm}ccc@{}}
@@ -264,7 +265,7 @@ The three comparisons point to different causes. Eight updates leave the width-3
 
 \subsection{Runtime against estimated work}
 
-\begin{figure}[ht]
+\begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{runtime.pdf}
 \caption{Measured training time against estimated affine work.}
@@ -274,7 +275,7 @@ Within a single model, measured time follows estimated work closely. Time per ch
 
 \subsection{Convergence sensitivity on noisy XOR}
 
-\begin{figure}[ht]
+\begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{convergence.pdf}
 \caption{Test loss and final gradient norm against update cap and learning rate.}
