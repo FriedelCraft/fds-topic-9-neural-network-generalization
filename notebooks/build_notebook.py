@@ -33,12 +33,22 @@ def code(text: str) -> None:
 
 
 md(r"""
-# Neural-network capacity and generalization
+# Neural-Network Capacity and Generalization
 
-MAC 312 · Project 9 · notebook of the work completed so far
+MAC F312 - Foundations of Data Science · BITS Pilani, K.K. Birla Goa Campus
 
-This notebook runs the project end to end and **does not need the repository**. It writes the project's
-`topic9` package from the cells below, then runs each stage and draws the figures.
+| Name | ID | Contribution |
+|---|---|---|
+| Yash Saxena | 2024ADPS0868G | Data and protocol: noisy XOR and WDBC loaders, paired nested training subsets, training-only standardization, metrics and seeds. |
+| Raghav Singhal | 2024ADPS0827G | One-hidden-layer network and loss, derivation and NumPy implementation of backpropagation, finite-difference gradient checks. |
+| Devam Bhavsar | 2024ADPS0831G | Logistic-regression baseline, paired sweeps over hidden width and training size on both datasets, paired comparison with the baseline. |
+| Arnav Gupta | 2024ADPS0843G | Unregularized, weight-decay and early-stopping experiments with validation-based selection, and the review of selection and of paired accuracy and loss. |
+| Rishi Motwani | 2024ADPS0838G | Random-label experiments: separate label streams for train, validation and test, matched clean and random runs, label-independence audit. |
+| Mehta Prem | 2024ADPS0851G | Compute-budget comparison and the three controlled diagnoses, runtime benchmark, convergence study, the report and this notebook. |
+
+This notebook runs the project end to end and does not need the repository. It writes the project's `topic9` package
+from the cells below, runs each stage and draws the figures. The project is still in progress, so the notebook
+covers the work completed so far.
 
 | Stage | What it does |
 |---|---|
@@ -50,12 +60,12 @@ This notebook runs the project end to end and **does not need the repository**. 
 | 6. Compute budgets and diagnoses | Equal estimated compute against a capped convergence rule, plus three controlled diagnostics |
 | 7. Extension | Measured runtime against estimated work, and a convergence study on noisy XOR |
 
-**Requirements:** Python 3.10 or newer with `numpy`, `scikit-learn`, `matplotlib`, `threadpoolctl`, and Jupyter.
-The WDBC data ship with scikit-learn, so no download is needed.
+You need Python 3.10 or newer with `numpy`, `scikit-learn`, `matplotlib`, `threadpoolctl` and Jupyter. The WDBC
+data ship with scikit-learn, so nothing is downloaded.
 
-**Run time:** `MODE = "full"` reproduces the archived protocol (15 paired runs per condition) and takes
-roughly 10 minutes on a laptop. `MODE = "quick"` uses one seed pair and at most 40 updates, finishes in about a
-minute, and is only a smoke test. Its numbers are not meaningful results.
+Set `MODE = "full"` to reproduce the archived protocol (15 paired runs per condition), which takes roughly 10 minutes
+on a laptop. `MODE = "quick"` uses one seed pair and at most 40 updates and finishes in about a minute. It is only a
+smoke test, and its numbers are not results.
 """)
 
 md("## 0. Setup")
@@ -86,7 +96,7 @@ md(r"""
 ### Package source
 
 The next cells write the `topic9` modules to `topic9_nb/src/topic9/`. They are the same files as in the
-repository (`src/topic9/`), shown here so the notebook is self-contained.
+repository (`src/topic9/`), included so the notebook is self-contained.
 """)
 
 for name in MODULES:
@@ -172,13 +182,13 @@ def quiet(function, *args, **kwargs):
 md(r"""
 ## 1. Data and protocol
 
-Two datasets share one protocol:
+Both datasets follow one protocol.
 
-* **Noisy XOR.** Two uniform features in $[-1,1]$. The label is 1 when the signs differ, and each label is flipped
+* Noisy XOR has two uniform features in $[-1,1]$. The label is 1 when the signs differ, and each label is flipped
   independently with probability 0.10, so the Bayes accuracy is 90%.
-* **WDBC.** All 569 Wisconsin Diagnostic Breast Cancer examples with 30 numeric features (malignant = 1), from the
-  copy bundled with scikit-learn. Wolberg, Mangasarian, Street and Street (1993), UCI Machine Learning Repository,
-  [doi:10.24432/C5DW2B](https://doi.org/10.24432/C5DW2B), CC BY 4.0.
+* WDBC has all 569 Wisconsin Diagnostic Breast Cancer examples with 30 numeric features (malignant = 1), taken from the
+  copy bundled with scikit-learn. The data are by Wolberg, Mangasarian, Street and Street (1993), UCI Machine Learning
+  Repository, [doi:10.24432/C5DW2B](https://doi.org/10.24432/C5DW2B), CC BY 4.0.
 
 Each dataset has a training reservoir and fixed validation and test pools. A *data seed* permutes the reservoir, and
 training sizes 32, 96 and 256 are nested prefixes of that permutation. Features are standardized with the training
@@ -287,8 +297,8 @@ md(r"""
 ### Paired comparison with logistic regression
 
 Each network run is paired with the logistic run that has the same data seed and initialization seed. The
-differences are averaged within each data seed first, so the spread below is across the five data seeds
-(sample SD), not across all 15 dependent runs.
+differences are averaged within each data seed first, so the spread below is the sample SD across the five data
+seeds. The 15 runs share data seeds and are not independent.
 """)
 
 code(r"""
@@ -330,7 +340,7 @@ for r in select(tuning, selected=1):
 table(["Dataset", "n", "Selected weight decay (all runs)"],
       [[d, n, ", ".join(f"{v:g}" for v in sorted(set(vals)))] for (d, n), vals in sorted(chosen.items())])
 # Where early stopping restored its checkpoint (update 0 is the initial model).
-display(Markdown("**Early stopping on noisy XOR: restored checkpoint, and accuracy change against the matched unregularized fit**"))
+display(Markdown("#### Early stopping on noisy XOR: restored checkpoint and accuracy change against the matched unregularized fit"))
 base = {(r["dataset"], r["train_size"], r["data_seed"], r["init_seed"]): r
         for r in reg if r["regularization"] == "none"}
 body = []
@@ -377,7 +387,7 @@ Binomial($n_\text{test}$, 0.5). The table counts how many random-label runs fall
 and how many fit every training label. The audit checks that the drawn labels are unrelated to the features: the largest
 absolute feature-label correlation of each draw should stay below a Bonferroni-style threshold.
 
-*Reproducibility note:* one width-2 WDBC random-label fit (n = 96) stops almost exactly at the gradient threshold, so its result can differ slightly between platforms. The archived results in the repository have 229 of 240 runs inside the interval, and a rerun on another machine can give 230.
+One width-2 WDBC random-label fit (n = 96) stops almost exactly at the gradient threshold, so its result can differ slightly between platforms. The archived results in the repository have 229 of 240 runs inside the interval, and a rerun on another machine can give 230.
 """)
 
 code(r"""
@@ -403,16 +413,17 @@ print(f"Label audit: {below} of {len(audit)} draws have every feature correlatio
 md(r"""
 ## 7. Compute budgets and controlled diagnoses
 
-**Estimated work.** One checkpoint is a training forward and gradient pass plus a validation forward pass, with
-$(2n+n_v)d$ affine multiply-accumulates for logistic regression and $(2n+n_v)\,m\,(d+1)$ for the network.
+One checkpoint is a training forward and gradient pass plus a validation forward pass. It costs $(2n+n_v)d$ affine
+multiply-accumulates for logistic regression and $(2n+n_v)\,m\,(d+1)$ for the network.
 
-**Two budget rules** at $n=96$:
+At $n=96$ the notebook compares two budget rules.
 
-1. *Common compute.* Every model gets the largest whole number of updates that fits under the work of 181
-   width-8 checkpoints.
-2. *Gradient rule with cap.* Train until the penalized-training-objective gradient norm is at most 0.005, or 800 updates.
+1. Common compute: every model gets the largest whole number of updates that fits under the work of 181 width-8
+   checkpoints.
+2. Gradient rule with cap: train until the gradient norm of the penalized training objective is at most 0.005, or for
+   800 updates.
 
-Because the second rule usually stops at its cap for the networks, the table also records how each run stopped.
+The second rule usually stops at its cap for the networks, so the table also records how each run stopped.
 """)
 
 code(r"""
@@ -435,13 +446,14 @@ show_figures("budget")
 md(r"""
 ### Three controlled diagnoses
 
-Each diagnosis changes one thing and keeps the data, seeds and learning rate fixed:
+Each diagnosis changes one thing and keeps the data, seeds and learning rate fixed.
 
-* **Optimization** (XOR, width 32): 8 updates against 800, then 800 against 3,000.
-* **Representation** (XOR): replace the linear model by the width-32 network.
-* **Overfitting** (WDBC, $n=32$): the unregularized terminal iterate against the validation-selected checkpoint.
+* Optimization (XOR, width 32): 8 updates against 800, then 800 against 3,000.
+* Representation (XOR): the linear model against the width-32 network.
+* Overfitting (WDBC, $n=32$): the unregularized terminal iterate against the validation-selected checkpoint.
 
-Validation loss is the selection criterion in the overfitting comparison, so only the change in *test* loss is evidence there.
+Validation loss is the selection criterion in the overfitting comparison, so only the change in test loss counts as
+evidence there.
 """)
 
 code(r"""
@@ -499,9 +511,9 @@ for dataset in experiments.DATASETS:
 md(r"""
 ## 9. Extension: convergence sensitivity on noisy XOR
 
-With 256 training examples and widths 8 and 32, the **update cap** (100 to 3,200 at learning rate 0.2) and the
-**learning rate** (0.05 to 1.6 at cap 800) are varied separately. Every run records the train, validation and test
-loss, the final gradient norm, any increase in training loss between updates, and the reason it stopped.
+With 256 training examples and widths 8 and 32, the update cap (100 to 3,200 at learning rate 0.2) and the learning
+rate (0.05 to 1.6 at cap 800) are varied separately. Every run records the train, validation and test loss, the final
+gradient norm, any increase in training loss between updates, and the reason it stopped.
 """)
 
 code(r"""
@@ -519,9 +531,9 @@ def row_for(sweep, width, field, level):
 
 heads = ["Setting", "Converged", "Mean updates", "Train loss", "Test loss", "Final grad. norm", "Runs with loss increases"]
 for width in sensitivity.WIDTHS:
-    display(Markdown(f"**Width {width}: update cap (learning rate 0.2)**"))
+    display(Markdown(f"#### Width {width}: update cap (learning rate 0.2)"))
     table(heads, [row_for("cap", width, "max_steps", c) for c in sensitivity.CAPS if select(conv, sweep="cap", width=width, max_steps=c)])
-    display(Markdown(f"**Width {width}: learning rate (cap 800)**"))
+    display(Markdown(f"#### Width {width}: learning rate (cap 800)"))
     table(heads, [row_for("learning_rate", width, "learning_rate", lr) for lr in sensitivity.LEARNING_RATES
                   if select(conv, sweep="learning_rate", width=width, learning_rate=lr)])
 show_figures("convergence")
@@ -530,7 +542,7 @@ show_figures("convergence")
 md(r"""
 ## 10. Summary of the results so far
 
-The cell below reads the numbers from this run, so the text stays consistent with the tables above.
+The numbers below are read from this run, so they match the tables above.
 """)
 
 code(r"""
@@ -541,22 +553,22 @@ def acc_loss(rows, **c):
 ok = lambda sweep, w, **c: sum(r["stop_reason"] == "converged" for r in select(conv, sweep=sweep, width=w, **c))
 
 display(Markdown(f'''
-* **Capacity.** On noisy XOR with n = 256, the width-32 network reaches {acc_loss(cap, dataset="synthetic", train_size=256, width=32)}
+* Capacity: On noisy XOR with n = 256, the width-32 network reaches {acc_loss(cap, dataset="synthetic", train_size=256, width=32)}
   (test accuracy / cross-entropy) and logistic regression {acc_loss(cap, dataset="synthetic", train_size=256, width=0)}. On WDBC at n = 256
   logistic regression reaches {acc_loss(cap, dataset="wdbc", train_size=256, width=0)} and the width-32 network {acc_loss(cap, dataset="wdbc", train_size=256, width=32)}.
-* **Regularization.** Early-stopping test loss on WDBC at n = 32 is
+* Regularization: Early-stopping test loss on WDBC at n = 32 is
   {mean(select(reg, dataset="wdbc", train_size=32, regularization="early_stopping"), "test_loss"):.3f}, against
   {mean(select(reg, dataset="wdbc", train_size=32, regularization="none"), "test_loss"):.3f} without regularization.
-* **Random labels.** On WDBC with n = 32 the width-32 network reaches
+* Random labels: On WDBC with n = 32 the width-32 network reaches
   {100*mean(select(rl, dataset="wdbc", train_size=32, width=32, labels="random"), "train_accuracy"):.1f}% training accuracy and
   {100*mean(select(rl, dataset="wdbc", train_size=32, width=32, labels="random"), "test_accuracy"):.1f}% held-out accuracy on random labels.
-* **Compute.** On XOR, width 32 gets {acc_loss(bud, dataset="synthetic", width=32, budget="fixed")} under the common budget and
+* Compute: On XOR, width 32 gets {acc_loss(bud, dataset="synthetic", width=32, budget="fixed")} under the common budget and
   {acc_loss(bud, dataset="synthetic", width=32, budget="convergence")} under the capped gradient rule, which stopped at its cap in
   {sum(r["stop_reason"] == "budget" for r in select(bud, dataset="synthetic", width=32, budget="convergence"))} of
   {len(select(bud, dataset="synthetic", width=32, budget="convergence"))} runs.
-* **Runtime.** Across the 16 conditions, estimated work alone explains R² = {fits["pooled"]["r_squared"]:.2f} of the variation
+* Runtime: Across the 16 conditions, estimated work alone explains R² = {fits["pooled"]["r_squared"]:.2f} of the variation
   in log runtime, so equal estimated work does not mean equal elapsed time.
-* **Convergence.** At the baseline (learning rate 0.2, cap 800), {ok("cap", 32, max_steps=800)} of
+* Convergence: At the baseline (learning rate 0.2, cap 800), {ok("cap", 32, max_steps=800)} of
   {len(select(conv, sweep="cap", width=32, max_steps=800))} width-32 runs meet the 0.005 gradient threshold.
 '''))
 """)
@@ -564,17 +576,31 @@ display(Markdown(f'''
 md(r"""
 ## 11. Status and open items
 
-**Done:** the data and protocol, the manually derived and finite-difference-checked network, the capacity sweep,
+Done so far: the data and protocol, the manually derived and finite-difference-checked network, the capacity sweep,
 the three regularization methods, the random-label control, both compute-budget rules with three controlled diagnoses,
 the runtime benchmark and the convergence study.
 
-**Still open:**
+Still open:
 
-* Review of each workstream by its owner (data and splits, gradient trace, capacity matches, validation-only selection,
-  random-label independence), as listed in the repository's `TEAM.md`.
-* The final report is a separate LaTeX document in the repository. This notebook covers the experiments and figures only.
-* The notebook reports one machine's timings and a single dataset pair. The conclusions apply only to this protocol:
-  two datasets, full-batch gradient descent at the stated learning rates, and the tested widths and sample sizes.
+* Each workstream owner still has to review their part (data and splits, gradient trace, capacity matches,
+  validation-only selection, random-label independence), as listed in the repository's `TEAM.md`.
+* The final report is a separate LaTeX document in the repository. This notebook covers only the experiments and figures.
+* The timings come from one machine, and the conclusions hold only for this protocol: two datasets, full-batch gradient
+  descent at the stated learning rates, and the tested widths and sample sizes.
+""")
+
+md(r"""
+## References
+
+1. D. E. Rumelhart, G. E. Hinton and R. J. Williams. Learning representations by back-propagating errors. *Nature*, 323(6088):533-536, 1986.
+2. X. Glorot and Y. Bengio. Understanding the difficulty of training deep feedforward neural networks. In *Proceedings of the 13th International Conference on Artificial Intelligence and Statistics (AISTATS)*, PMLR 9:249-256, 2010.
+3. A. Krogh and J. A. Hertz. A simple weight decay can improve generalization. In *Advances in Neural Information Processing Systems 4*, pages 950-957, 1992.
+4. L. Prechelt. Early stopping, but when? In *Neural Networks: Tricks of the Trade*, Lecture Notes in Computer Science 1524, pages 55-69. Springer, 1998.
+5. C. Zhang, S. Bengio, M. Hardt, B. Recht and O. Vinyals. Understanding deep learning requires rethinking generalization. In *International Conference on Learning Representations (ICLR)*, 2017.
+6. W. Wolberg, O. Mangasarian, N. Street and W. Street. Breast Cancer Wisconsin (Diagnostic). UCI Machine Learning Repository, 1993. [doi:10.24432/C5DW2B](https://doi.org/10.24432/C5DW2B).
+7. F. Pedregosa et al. Scikit-learn: Machine learning in Python. *Journal of Machine Learning Research*, 12:2825-2830, 2011.
+8. C. R. Harris et al. Array programming with NumPy. *Nature*, 585:357-362, 2020.
+9. J. D. Hunter. Matplotlib: A 2D graphics environment. *Computing in Science & Engineering*, 9(3):90-95, 2007.
 """)
 
 notebook = new_notebook(cells=cells)
