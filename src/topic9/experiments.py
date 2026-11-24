@@ -31,6 +31,12 @@ MIN_DELTA = 0.0002
 REFERENCE_WIDTH = 8
 REFERENCE_STEPS = 180
 CURVE_INTERVAL = 5
+RANDOM_LABEL_SEED_OFFSET = 10_000
+
+
+def random_label_seed(data_seed: int) -> int:
+    """Label stream paired with one data seed; shared by every width and setting."""
+    return RANDOM_LABEL_SEED_OFFSET + data_seed
 
 
 @dataclass(frozen=True)
@@ -129,7 +135,7 @@ def run(output: Path, quick: bool = False) -> None:
     def split_for(dataset, size, data_seed, labels):
         return prepare_split(
             datasets[dataset], size, data_seed,
-            label_seed=10_000 + data_seed if labels == "random" else None,
+            label_seed=random_label_seed(data_seed) if labels == "random" else None,
         )
 
     @lru_cache(maxsize=None)
