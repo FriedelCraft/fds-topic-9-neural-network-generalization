@@ -1,0 +1,63 @@
+{
+  "quick": false,
+  "data_seeds": [
+    301,
+    302,
+    303,
+    304,
+    305
+  ],
+  "init_seeds": [
+    11,
+    29,
+    47
+  ],
+  "widths": [
+    0,
+    2,
+    8,
+    32
+  ],
+  "train_sizes": [
+    32,
+    96,
+    256
+  ],
+  "learning_rate": 0.2,
+  "max_steps": 800,
+  "gradient_tolerance": 0.005,
+  "decays": [
+    0.0005,
+    0.005,
+    0.05
+  ],
+  "patience": 35,
+  "min_delta": 0.0002,
+  "extended_steps": 3000,
+  "reference_width": 8,
+  "reference_steps": 180,
+  "curve_interval": 5,
+  "n_runs": 1365,
+  "gradient_checks": {
+    "width=0, decay=0": {
+      "parameters_checked": 4,
+      "max_abs_error": 4.699407529784594e-12,
+      "max_relative_error": 1.816629722855188e-11
+    },
+    "width=0, decay=0.05": {
+      "parameters_checked": 4,
+      "max_abs_error": 9.655054533652674e-12,
+      "max_relative_error": 4.450535129845472e-11
+    },
+    "width=4, decay=0": {
+      "parameters_checked": 21,
+      "max_abs_error": 9.13356890119843e-12,
+      "max_relative_error": 8.596596098953249e-10
+    },
+    "width=4, decay=0.05": {
+      "parameters_checked": 21,
+      "max_abs_error": 1.0553301288407368e-11,
+      "max_relative_error": 1.9178948708644412e-09
+    }
+  }
+}
