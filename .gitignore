@@ -5,3 +5,14 @@ __pycache__/
 .pytest_cache/
 .matplotlib/
 smoke-results/
+
+# LaTeX build files
+report/*.aux
+report/*.log
+report/*.out
+report/*.fdb_latexmk
+report/*.fls
+report/*.synctex.gz
+
+# Working directory the notebook creates when run
+topic9_nb/

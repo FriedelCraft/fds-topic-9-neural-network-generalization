@@ -1,0 +1,68 @@
+{
+  "quick": false,
+  "data_seeds": [
+    301,
+    302,
+    303,
+    304,
+    305
+  ],
+  "init_seeds": [
+    11,
+    29,
+    47
+  ],
+  "repeats": 5,
+  "timed_region": "train() call only: updates, per-update training pass and validation scoring",
+  "timer": "time.perf_counter, garbage collection paused, one BLAS thread",
+  "gradient_tolerance": 0.005,
+  "learning_rate": 0.2,
+  "fits": {
+    "pooled": {
+      "slope": 0.35119942071540744,
+      "r_squared": 0.36152771153423746,
+      "conditions": 16
+    },
+    "synthetic": {
+      "slope": 0.6076574276633634,
+      "r_squared": 0.6712182553440086,
+      "conditions": 8
+    },
+    "wdbc": {
+      "slope": 0.4489298120192954,
+      "r_squared": 0.310891060778978,
+      "conditions": 8
+    }
+  },
+  "cost_models": {
+    "work_only": {
+      "coefficients": [
+        8.810149436682248e-10
+      ],
+      "median_relative_error": 0.8258881618713413,
+      "max_relative_error": 0.9847432864009675
+    },
+    "updates_only": {
+      "coefficients": [
+        6.837047096811673e-05
+      ],
+      "median_relative_error": 0.388733873903501,
+      "max_relative_error": 0.6910972697223642
+    },
+    "updates_plus_work": {
+      "coefficients": [
+        5.97524466034911e-05,
+        4.499661290842207e-10
+      ],
+      "median_relative_error": 0.26612997183554077,
+      "max_relative_error": 0.6425997445038618
+    }
+  },
+  "machine": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "processor": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+    "cpu_count": 16,
+    "python": "3.13.4",
+    "numpy": "2.5.2"
+  }
+}

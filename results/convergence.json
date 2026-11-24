@@ -1,0 +1,41 @@
+{
+  "quick": false,
+  "dataset": "synthetic",
+  "train_size": 256,
+  "widths": [
+    8,
+    32
+  ],
+  "caps": [
+    100,
+    200,
+    400,
+    800,
+    1600,
+    3200
+  ],
+  "learning_rates": [
+    0.05,
+    0.1,
+    0.2,
+    0.4,
+    0.8,
+    1.6
+  ],
+  "baseline_learning_rate": 0.2,
+  "baseline_cap": 800,
+  "gradient_tolerance": 0.005,
+  "data_seeds": [
+    301,
+    302,
+    303,
+    304,
+    305
+  ],
+  "init_seeds": [
+    11,
+    29,
+    47
+  ],
+  "n_runs": 360
+}

@@ -4,12 +4,14 @@ import argparse
 import csv
 from collections import defaultdict
 from pathlib import Path
-from statistics import mean, stdev
+from statistics import mean, median, stdev
 
 import matplotlib
+import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 from matplotlib.ticker import LogLocator, MaxNLocator, MultipleLocator, PercentFormatter
 
 
@@ -19,7 +21,9 @@ METHOD_COLORS = ("#64748B", "#00796B", "#8C4084")
 COLORS = ("#146EAC", "#C26813", "#16836B")
 INK = "#223047"
 LIGHT_INK = "#4E6075"
-INT_FIELDS = {"width", "train_size", "data_seed", "init_seed", "steps", "selected_step", "step", "compute"}
+INT_FIELDS = {"width", "train_size", "data_seed", "init_seed", "steps", "selected_step", "step", "compute",
+              "max_steps", "repeat"}
+FLOAT_FIELDS = {"seconds", "learning_rate"}
 RC = {
     "font.family": "DejaVu Sans",
     "font.size": 10,
@@ -47,7 +51,7 @@ def _read_csv(path):
         for field, value in row.items():
             if value and field in INT_FIELDS:
                 row[field] = int(value)
-            elif value and field.endswith(("_loss", "_accuracy")):
+            elif value and (field in FLOAT_FIELDS or field.endswith(("_loss", "_accuracy", "_norm"))):
                 row[field] = float(value)
     return rows
 
@@ -287,6 +291,115 @@ def _diagnostics(rows, path):
     _save(fig, path)
 
 
+WIDTH_COLORS = {0: "#64748B", 2: COLORS[0], 8: COLORS[2], 32: COLORS[1]}
+BUDGET_MARKERS = {"fixed": ("o", "Common compute budget"), "convergence": ("s", "Convergence criterion with cap")}
+
+
+def _runtime_conditions(rows):
+    """Median seconds per matched run, and mean estimated work, for each condition."""
+    by_run = defaultdict(list)
+    for row in rows:
+        by_run[(row["dataset"], row["width"], row["budget"], row["data_seed"], row["init_seed"])].append(row)
+    conditions = defaultdict(list)
+    pair_work = defaultdict(list)
+    for (dataset, width, budget, _, _), group in by_run.items():
+        conditions[(dataset, width, budget)].append(median(row["seconds"] for row in group))
+        # Estimated work depends on each run's update count, so average it over the matched runs.
+        pair_work[(dataset, width, budget)].append(group[0]["compute"])
+    return conditions, {key: mean(values) for key, values in pair_work.items()}
+
+
+def _runtime(rows, path):
+    """Plot measured time against estimated affine work for every matched condition."""
+    conditions, work = _runtime_conditions(rows)
+    repeats = max(row["repeat"] for row in rows)
+    matched = len({(row["data_seed"], row["init_seed"]) for row in rows})
+    times = {1: "once", 2: "twice"}.get(repeats, f"{ {3: 'three', 4: 'four', 5: 'five'}.get(repeats, repeats) } times")
+
+    fig, axes = plt.subplots(1, len(DATASETS), figsize=(11, 5.4), sharey=True)
+    fig.subplots_adjust(left=0.085, right=0.98, top=0.73, bottom=0.16, wspace=0.12)
+    _header(fig, "Measured runtime against estimated work",
+            f"Each matched run is timed {times}. Points are medians over {matched} matched runs and bars span the quartiles.",
+            "The dashed line marks time proportional to estimated work, at each panel's median seconds per affine term.")
+    for ax, (dataset, name) in zip(axes, DATASETS.items()):
+        keys = sorted(key for key in conditions if key[0] == dataset)
+        rate = median(median(conditions[key]) / work[key] for key in keys)
+        edge = [min(work[key] for key in keys) / 2, max(work[key] for key in keys) * 2]
+        ax.plot(edge, [rate * value for value in edge], color="#A6B0BD", linestyle="--", linewidth=1.2, zorder=1)
+        for key in keys:
+            _, width, budget = key
+            times = conditions[key]
+            middle = median(times)
+            low, high = np.percentile(times, [25, 75])
+            ax.errorbar(work[key], middle, yerr=([middle - low], [high - middle]), color=WIDTH_COLORS[width],
+                        marker=BUDGET_MARKERS[budget][0], markersize=7, capsize=3, elinewidth=1.2,
+                        markerfacecolor=WIDTH_COLORS[width] if budget == "fixed" else "white",
+                        markeredgewidth=1.6, linestyle="none", zorder=3)
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax.set_xlim(*edge)
+        ax.xaxis.set_major_locator(LogLocator(numticks=6))
+        ax.yaxis.set_major_locator(LogLocator(numticks=6))
+        ax.set_title(name, loc="left", fontweight="bold", fontsize=11, pad=9)
+        ax.set_xlabel("Estimated affine multiply-accumulates per run")
+        ax.grid(True)
+    axes[0].set_ylabel("Measured training time per run (seconds)")
+    handles = [Line2D([], [], color=WIDTH_COLORS[width], marker="o", linestyle="none", markersize=6,
+                      label="Logistic" if width == 0 else f"Width {width}") for width in WIDTH_COLORS]
+    handles += [Line2D([], [], color=INK, marker=marker, linestyle="none", markersize=6,
+                       markerfacecolor=INK if budget == "fixed" else "white", markeredgewidth=1.4, label=label)
+                for budget, (marker, label) in BUDGET_MARKERS.items()]
+    fig.legend(handles=handles, loc="lower left", bbox_to_anchor=(0.055, 0.78), ncol=3, frameon=False,
+               borderaxespad=0, handlelength=1.5)
+    _save(fig, path)
+
+
+def _sweep_series(ax, positions, groups, metric, *, color, label, marker, log_scale=False):
+    """Mean over data seeds with ±1 SD bars, skipping settings where no run produced a value."""
+    xs, values, spreads = [], [], []
+    for position, group in zip(positions, groups):
+        group = [row for row in group if row.get(metric) not in (None, "")]
+        if group:
+            value, spread = _summary(group, metric)
+            xs.append(position)
+            values.append(value)
+            spreads.append(min(spread, value * 0.8) if log_scale else spread)
+    ax.errorbar(xs, values, yerr=(spreads, spreads), color=color, label=label, marker=marker,
+                linewidth=1.8, markersize=5, capsize=3, elinewidth=1)
+
+
+def _convergence(rows, path):
+    """Plot test loss and final gradient norm against the update cap and the learning rate."""
+    sweeps = (
+        ("cap", "max_steps", "Update cap", "Learning rate 0.2, varying the update cap"),
+        ("learning_rate", "learning_rate", "Learning rate", "Update cap 800, varying the learning rate"),
+    )
+    fig, axes = plt.subplots(2, 2, figsize=(11, 8), squeeze=False)
+    fig.subplots_adjust(left=0.10, right=0.97, top=0.81, bottom=0.12, hspace=0.42, wspace=0.28)
+    _header(fig, "Convergence sensitivity on noisy XOR",
+            "Network with 256 training examples. The gradient rule stops a run once the norm reaches 0.005.",
+            SPREAD_NOTE)
+    for column, (sweep, field, xlabel, title) in enumerate(sweeps):
+        source = _select(rows, sweep=sweep)
+        levels = _levels(source, field)
+        for row_index, (metric, ylabel, log_scale) in enumerate((
+            ("test_loss", "Test cross-entropy", False), ("final_gradient_norm", "Final gradient norm", True),
+        )):
+            ax = axes[row_index, column]
+            for width, marker in ((8, "o"), (32, "s")):
+                groups = [_select(source, width=width, **{field: level}) for level in levels]
+                _sweep_series(ax, range(len(levels)), groups, metric, color=WIDTH_COLORS[width],
+                              label=f"Width {width}", marker=marker, log_scale=log_scale)
+            _panel(ax, title if row_index == 0 else "", ylabel, log_scale=log_scale)
+            ax.set_xticks(range(len(levels)), [f"{level:g}" for level in levels])
+            ax.set_xlabel(xlabel)
+            if log_scale:
+                ax.axhline(0.005, color="#A6B0BD", linestyle="--", linewidth=1.2, zorder=1)
+                ax.text(-0.25, 0.005, "threshold 0.005", ha="left", va="bottom", fontsize=8.5, color=LIGHT_INK)
+    _legend(fig, axes[0, 0], 2, loc=(0.055, 0.855))
+    _save(fig, path)
+
+
 def generate_figures(results_dir, output_dir=None, image_format="svg"):
     """Render the project figures, returning the paths that were written."""
     results_dir = Path(results_dir)
@@ -309,6 +422,13 @@ def generate_figures(results_dir, output_dir=None, image_format="svg"):
             else:
                 draw(rows, path)
             paths.append(path)
+        for name, filename, draw in (
+            ("runtime", "runtime.csv", _runtime), ("convergence", "convergence.csv", _convergence),
+        ):
+            if (results_dir / filename).exists():
+                path = output_dir / f"{name}.{image_format}"
+                draw(_read_csv(results_dir / filename), path)
+                paths.append(path)
     return paths
 
 
@@ -316,7 +436,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("results_dir", nargs="?", default="results")
     parser.add_argument("--output-dir")
-    parser.add_argument("--format", choices=("svg", "png"), default="svg")
+    parser.add_argument("--format", choices=("svg", "png", "pdf"), default="svg")
     args = parser.parse_args()
     for path in generate_figures(args.results_dir, args.output_dir, args.format):
         print(path)
