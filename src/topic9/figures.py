@@ -295,16 +295,23 @@ WIDTH_COLORS = {0: "#64748B", 2: COLORS[0], 8: COLORS[2], 32: COLORS[1]}
 BUDGET_MARKERS = {"fixed": ("o", "Common compute budget"), "convergence": ("s", "Convergence criterion with cap")}
 
 
-def _runtime(rows, path):
-    """Plot measured time against estimated affine work for every matched condition."""
+def _runtime_conditions(rows):
+    """Median seconds per matched run, and mean estimated work, for each condition."""
     by_run = defaultdict(list)
     for row in rows:
         by_run[(row["dataset"], row["width"], row["budget"], row["data_seed"], row["init_seed"])].append(row)
     conditions = defaultdict(list)
-    work = {}
+    pair_work = defaultdict(list)
     for (dataset, width, budget, _, _), group in by_run.items():
         conditions[(dataset, width, budget)].append(median(row["seconds"] for row in group))
-        work[(dataset, width, budget)] = group[0]["compute"]
+        # Estimated work depends on each run's update count, so average it over the matched runs.
+        pair_work[(dataset, width, budget)].append(group[0]["compute"])
+    return conditions, {key: mean(values) for key, values in pair_work.items()}
+
+
+def _runtime(rows, path):
+    """Plot measured time against estimated affine work for every matched condition."""
+    conditions, work = _runtime_conditions(rows)
 
     fig, axes = plt.subplots(1, len(DATASETS), figsize=(11, 5.4), sharey=True)
     fig.subplots_adjust(left=0.085, right=0.98, top=0.73, bottom=0.16, wspace=0.12)

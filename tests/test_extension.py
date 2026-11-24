@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
+from topic9.figures import _runtime_conditions
 from topic9.benchmark import cost_models, measure, summarize
 from topic9.sensitivity import _trajectory_summary, run as run_sensitivity
 
@@ -38,6 +39,19 @@ class BenchmarkTests(unittest.TestCase):
         models = cost_models(summary)
         self.assertLess(models["updates_only"]["median_relative_error"], 1e-3)
         self.assertGreater(models["work_only"]["max_relative_error"], 0)
+
+
+class RuntimeFigureTests(unittest.TestCase):
+    def test_work_is_averaged_over_matched_runs(self):
+        rows = [
+            dict(dataset="wdbc", width=32, budget="convergence", data_seed=seed, init_seed=1,
+                 repeat=repeat, seconds=0.1 * seed, compute=compute)
+            for seed, compute in ((1, 100), (2, 200), (3, 600)) for repeat in (1, 2)
+        ]
+        conditions, work = _runtime_conditions(rows)
+        key = ("wdbc", 32, "convergence")
+        self.assertEqual(work[key], 300)            # the mean, not the last run's 600
+        self.assertEqual(len(conditions[key]), 3)
 
 
 class SensitivityTests(unittest.TestCase):

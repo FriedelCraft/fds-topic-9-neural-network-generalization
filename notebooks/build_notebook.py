@@ -18,7 +18,8 @@ import nbformat
 from nbformat.v4 import new_code_cell, new_markdown_cell, new_notebook
 
 ROOT = Path(__file__).resolve().parents[1]
-MODULES = ("__init__", "data", "models", "training", "experiments", "figures", "benchmark", "sensitivity")
+MODULES = ("__init__", "data", "models", "training", "experiments", "capacity", "random_labels",
+           "figures", "benchmark", "sensitivity")
 
 cells = []
 
@@ -112,7 +113,7 @@ import numpy as np
 from IPython.display import Image, Markdown, display
 from threadpoolctl import threadpool_limits
 
-from topic9 import benchmark, experiments, figures, sensitivity
+from topic9 import benchmark, capacity, experiments, figures, random_labels, sensitivity
 from topic9.data import make_dataset, prepare_split
 from topic9.models import gradient_check, initialize, metrics
 
@@ -283,6 +284,26 @@ show_figures("capacity")
 """)
 
 md(r"""
+### Paired comparison with logistic regression
+
+Each network run is paired with the logistic run that has the same data seed and initialization seed. The
+differences are averaged within each data seed first, so the spread below is across the five data seeds
+(sample SD), not across all 15 dependent runs.
+""")
+
+code(r"""
+pairs = list(capacity.summarize(RESULTS))
+sd = lambda v: f"{float(v):.2f}" if v != "" else "n/a"
+table(["Dataset", "n", "Width", "Accuracy change vs logistic (pp)", "Loss change vs logistic",
+       "Data seeds with higher accuracy", "Data seeds with lower loss"],
+      [[p["dataset"], p["train_size"], p["width"],
+        f"{float(p['test_accuracy_delta_pp_mean']):+.1f} ± {sd(p['test_accuracy_delta_pp_sd'])}",
+        f"{float(p['test_loss_delta_mean']):+.3f} ± {float(p['test_loss_delta_sd'] or 0):.3f}",
+        f"{p['data_seeds_with_higher_accuracy']} / {p['n_data_seeds']}",
+        f"{p['data_seeds_with_lower_loss']} / {p['n_data_seeds']}"] for p in pairs])
+""")
+
+md(r"""
 ## 5. Regularization
 
 At width 32 the notebook compares an unregularized fit, weight decay ($\lambda\in\{5\cdot10^{-4},5\cdot10^{-3},0.05\}$ chosen by
@@ -308,6 +329,20 @@ for r in select(tuning, selected=1):
     chosen.setdefault((r["dataset"], r["train_size"]), []).append(r["decay"])
 table(["Dataset", "n", "Selected weight decay (all runs)"],
       [[d, n, ", ".join(f"{v:g}" for v in sorted(set(vals)))] for (d, n), vals in sorted(chosen.items())])
+# Where early stopping restored its checkpoint (update 0 is the initial model).
+display(Markdown("**Early stopping on noisy XOR: restored checkpoint, and accuracy change against the matched unregularized fit**"))
+base = {(r["dataset"], r["train_size"], r["data_seed"], r["init_seed"]): r
+        for r in reg if r["regularization"] == "none"}
+body = []
+for size in (32, 256):
+    es = [r for r in select(reg, dataset="synthetic", train_size=size, regularization="early_stopping")]
+    change = lambda r: 100 * (r["test_accuracy"] - base[(r["dataset"], r["train_size"], r["data_seed"], r["init_seed"])]["test_accuracy"])
+    for label, group in (("restored update <= 9", [r for r in es if r["selected_step"] <= 9]),
+                         ("restored update > 9", [r for r in es if r["selected_step"] > 9])):
+        body.append([size, label, len(group),
+                     f"{st.mean(r['selected_step'] for r in group):.0f}" if group else "-",
+                     f"{st.mean(change(r) for r in group):+.1f} pp" if group else "-"])
+table(["n", "Group", "Runs", "Mean restored update", "Mean test-accuracy change"], body)
 show_figures("regularization")
 """)
 
@@ -332,6 +367,37 @@ for dataset in experiments.DATASETS:
                          f"{100*mean(rand,'train_accuracy'):.1f}% / {100*mean(rand,'test_accuracy'):.1f}%"])
 table(["Dataset", "n", "Model", "Clean labels: train / test", "Random labels: train / test"], body)
 show_figures("random_labels")
+""")
+
+md(r"""
+### Chance check and label audit
+
+Because the test labels are independent of the model, the number of correct test predictions is exactly
+Binomial($n_\text{test}$, 0.5). The table counts how many random-label runs fall inside the central 95% interval
+and how many fit every training label. The audit checks that the drawn labels are unrelated to the features: the largest
+absolute feature-label correlation of each draw should stay below a Bonferroni-style threshold.
+
+*Reproducibility note:* one width-2 WDBC random-label fit (n = 96) stops almost exactly at the gradient threshold, so its result can differ slightly between platforms. The archived results in the repository have 229 of 240 runs inside the interval, and a rerun on another machine can give 230.
+""")
+
+code(r"""
+chance = [r for r in random_labels.summarize(RESULTS) if r["labels"] == "random"]
+table(["Dataset", "n", "Model", "Train acc.", "Test acc.", "Runs fitting all train labels",
+       "95% chance interval", "Runs inside interval"],
+      [[r["dataset"], r["train_size"], "Logistic" if r["width"] == 0 else f"Width {r['width']}",
+        f"{r['train_accuracy_mean']}%", f"{r['test_accuracy_mean']}%",
+        f"{r['runs_fitting_all_train_labels']} / {r['n_runs']}", r["chance_interval"],
+        f"{r['runs_inside_chance_interval']} / {r['n_runs']}"] for r in chance])
+inside = sum(r["runs_inside_chance_interval"] for r in chance)
+print(f"Inside the chance interval: {inside} of {sum(r['n_runs'] for r in chance)} random-label runs")
+
+audit = list(random_labels.audit(json.load(open(RESULTS / "protocol.json"))["data_seeds"], 96))
+ratio = lambda a: float(a["max_abs_feature_correlation"]) / float(a["correlation_bound"])
+below = sum(ratio(a) < 1 for a in audit)
+closest = max(audit, key=ratio)
+print(f"Label audit: {below} of {len(audit)} draws have every feature correlation below the threshold; closest is "
+      f"{closest['max_abs_feature_correlation']} against {closest['correlation_bound']} "
+      f"({closest['dataset']}, {closest['split']}, seed {closest['data_seed']})")
 """)
 
 md(r"""
