@@ -411,6 +411,22 @@ table(["Dataset", "n", "Width", "Accuracy change vs logistic (pp)", "Loss change
 """)
 
 md(r"""
+On noisy XOR with 256 training examples, test accuracy rose from 73.6% at width 2 to 83.5% at width 8, then to 84.5% at
+width 32. The biggest gain came from going from 2 to 8 hidden units. More data also helped at a fixed width. The 32-unit
+network went from 75.8% accuracy with 32 examples to 84.5% with 256.
+
+To check how consistent the improvement was, we compared each network run with logistic regression trained on the same
+examples. We averaged the paired differences over three initializations for each of the five data seeds. On noisy XOR
+with 256 examples, width 32 beat logistic regression by an average of 33.6 percentage points, with a standard deviation of
+4.3 points across the five seeds. It improved both accuracy and cross-entropy on all five seed averages.
+
+On WDBC, logistic regression had higher mean test accuracy than every network at each training size in the unregularized
+sweep. With 256 examples, it scored 97.1% compared with 96.0% for width 32, and both had a cross-entropy of about 0.084.
+The nonlinear hidden layer helped on XOR, where a straight line cannot separate the classes. On WDBC, the linear baseline
+already performed well.
+""")
+
+md(r"""
 ### 3.2 Regularization
 
 The tables compare an unregularized fit, weight decay and early stopping for the width-32 network. The last table shows
