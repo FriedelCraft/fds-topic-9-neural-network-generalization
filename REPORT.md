@@ -1,6 +1,6 @@
 # Neural-network capacity and generalization
 
-MAC 312 · Project 9
+MAC 312 Â· Project 9
 
 On noisy XOR with 256 training examples, the width-32 network reached **84.5% mean test accuracy** and **0.440 test cross-entropy**. Logistic regression reached **50.9%** and **0.700**. On the Wisconsin Diagnostic Breast Cancer dataset (WDBC) at the same sample size, logistic regression reached **97.1%**, versus **96.0%** for the unregularized width-32 network. Under independently randomized WDBC labels, the width-32 model fit every training label at both tested sample sizes while held-out accuracy stayed near 50%. Three matched comparisons separate the causes of a poor fit. Too few updates explain the short noisy-XOR run. A linear model class limits noisy XOR even when it converges. Overfitting shows up on WDBC, where validation-based stopping lowers test loss while training loss rises.
 
@@ -77,9 +77,11 @@ Each cell gives mean test accuracy / cross-entropy over the same 15 seed pairs f
 
 All 60 weight-decay runs selected the penalty with the lowest terminal validation cross-entropy in the [tuning grid](results/tuning.csv). Early stopping checked validation loss after every update, including those between plotted points. Each run used the test set only after selecting its model.
 
-On noisy XOR with 32 training examples, all 15 weight-decay runs selected $\lambda=0.005$. Weight decay lowered test cross-entropy in 14 of the 15 matched runs, while mean accuracy fell by just 0.2 percentage points. Cross-entropy reflects how much probability the model assigns to the observed label, even when its predicted class stays the same.
+On noisy XOR with 32 training examples, all 15 weight-decay runs selected $\lambda=0.005$. Weight decay lowered test cross-entropy in 14 of 15 matched runs. After averaging the three paired differences within each data seed, the mean change was −0.049 (sample SD 0.041 across five seeds). Mean accuracy fell by only 0.2 percentage points because cross-entropy also reflects the probability assigned to the observed class. At 256 examples, loss fell in 8 of 15 pairs and both methods averaged 0.440 to three decimals.
 
-For early stopping on the same task, the mean selected update was 144 and the mean stopping update was 176. Early stopping reduced mean test accuracy relative to the unregularized model at both XOR sample sizes. On WDBC at $n=32$, it cut mean test cross-entropy from 0.225 to 0.139 while mean accuracy rose by one percentage point. The [run table](results/runs.csv) records both the selected update and the number of updates performed.
+Early stopping on XOR selected update 144 on average at 32 examples, but the checkpoints fell into two groups. Eight of 15 runs restored updates 0–7 and the other seven restored updates 242–354. At 256 examples, five runs restored updates 4–9 and the other ten restored updates 460–800. Every run that restored a checkpoint near initialization lost test accuracy against its matched unregularized fit. In those runs the validation plateau triggered patience before the network learned the XOR boundary.
+
+On WDBC with 32 examples, early stopping reduced mean test loss from 0.225 to 0.139 while mean accuracy rose from 94.0% to 95.0%. For weight decay, the three penalties (0.0005, 0.005, 0.05) were selected in 6, 2 and 7 runs at 32 examples, and in 7, 8 and 0 runs at 256 examples. The [run table](results/runs.csv) records the selected checkpoints and penalties for each seed pair.
 
 ## Random-label control
 
@@ -127,10 +129,10 @@ The two datasets respond to the budget in opposite ways. On XOR at equal compute
 
 | Diagnosis | Controlled change | Mean training loss | Mean validation loss | Mean test loss |
 |---|---|---:|---:|---:|
-| Optimization, XOR with $n=256$ | Same width 32, seed, learning rate and data. Increase allowance from 8 to 800 updates. | 0.689 → 0.379 | 0.701 → 0.422 | 0.702 → 0.440 |
-| Optimization, continued | Same runs, 800 → 3,000 updates under the same gradient rule. | 0.379 → 0.323 | 0.422 → 0.429 | 0.440 → 0.443 |
-| Representation, XOR with $n=256$ | Replace the linear model with width 32 and use the same gradient rule and 800-update cap. | 0.687 → 0.379 | 0.701 → 0.422 | 0.700 → 0.440 |
-| Overfitting, WDBC with $n=32$ | Same width 32 and starting weights. Use the validation-selected checkpoint. | 0.002 → 0.035 | 0.250 → 0.166 | 0.225 → 0.139 |
+| Optimization, XOR with $n=256$ | Same width 32, seed, learning rate and data. Increase allowance from 8 to 800 updates. | 0.689 â†’ 0.379 | 0.701 â†’ 0.422 | 0.702 â†’ 0.440 |
+| Optimization, continued | Same runs, 800 â†’ 3,000 updates under the same gradient rule. | 0.379 â†’ 0.323 | 0.422 â†’ 0.429 | 0.440 â†’ 0.443 |
+| Representation, XOR with $n=256$ | Replace the linear model with width 32 and use the same gradient rule and 800-update cap. | 0.687 â†’ 0.379 | 0.701 â†’ 0.422 | 0.700 â†’ 0.440 |
+| Overfitting, WDBC with $n=32$ | Same width 32 and starting weights. Use the validation-selected checkpoint. | 0.002 â†’ 0.035 | 0.250 â†’ 0.166 | 0.225 â†’ 0.139 |
 
 Optimization. Width 32 trained for 8 updates sits at the initial loss of about 0.7, and 800 updates lower test loss to 0.440 with the same model, data and seed. The budget comparison above shows the same effect at 44 updates (49.4% accuracy) versus 800 (82.6%). The 8-update run is a deliberately short control, so these two contrasts together show that too few updates hurt a model that can fit this task. The 800-update fit still has a mean terminal gradient norm of 0.0168, so we also trained the same runs for 3,000 updates. Training loss kept falling from 0.379 to 0.323, but test loss stayed at 0.443 (0.440 at 800) and test accuracy at 84.4% (84.5%). Only one of the 15 runs met the gradient threshold. Beyond 800 updates, further optimization lowers the training objective without improving held-out performance on this protocol, and validation loss rises slightly.
 
