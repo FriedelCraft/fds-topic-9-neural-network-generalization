@@ -1,6 +1,6 @@
 # Neural-network capacity and generalization
 
-MAC 312 Â· Project 9
+MAC 312 · Project 9
 
 On noisy XOR with 256 training examples, the width-32 network reached **84.5% mean test accuracy** and **0.440 test cross-entropy**. Logistic regression reached **50.9%** and **0.700**. On the Wisconsin Diagnostic Breast Cancer dataset (WDBC) at the same sample size, logistic regression reached **97.1%**, versus **96.0%** for the unregularized width-32 network. Under independently randomized WDBC labels, the width-32 model fit every training label at both tested sample sizes while held-out accuracy stayed near 50%. Three matched comparisons separate the causes of a poor fit. Too few updates explain the short noisy-XOR run. A linear model class limits noisy XOR even when it converges. Overfitting shows up on WDBC, where validation-based stopping lowers test loss while training loss rises.
 
@@ -129,10 +129,10 @@ The two datasets respond to the budget in opposite ways. On XOR at equal compute
 
 | Diagnosis | Controlled change | Mean training loss | Mean validation loss | Mean test loss |
 |---|---|---:|---:|---:|
-| Optimization, XOR with $n=256$ | Same width 32, seed, learning rate and data. Increase allowance from 8 to 800 updates. | 0.689 â†’ 0.379 | 0.701 â†’ 0.422 | 0.702 â†’ 0.440 |
-| Optimization, continued | Same runs, 800 â†’ 3,000 updates under the same gradient rule. | 0.379 â†’ 0.323 | 0.422 â†’ 0.429 | 0.440 â†’ 0.443 |
-| Representation, XOR with $n=256$ | Replace the linear model with width 32 and use the same gradient rule and 800-update cap. | 0.687 â†’ 0.379 | 0.701 â†’ 0.422 | 0.700 â†’ 0.440 |
-| Overfitting, WDBC with $n=32$ | Same width 32 and starting weights. Use the validation-selected checkpoint. | 0.002 â†’ 0.035 | 0.250 â†’ 0.166 | 0.225 â†’ 0.139 |
+| Optimization, XOR with $n=256$ | Same width 32, seed, learning rate and data. Increase allowance from 8 to 800 updates. | 0.689 → 0.379 | 0.701 → 0.422 | 0.702 → 0.440 |
+| Optimization, continued | Same runs, 800 → 3,000 updates under the same gradient rule. | 0.379 → 0.323 | 0.422 → 0.429 | 0.440 → 0.443 |
+| Representation, XOR with $n=256$ | Replace the linear model with width 32 and use the same gradient rule and 800-update cap. | 0.687 → 0.379 | 0.701 → 0.422 | 0.700 → 0.440 |
+| Overfitting, WDBC with $n=32$ | Same width 32 and starting weights. Use the validation-selected checkpoint. | 0.002 → 0.035 | 0.250 → 0.166 | 0.225 → 0.139 |
 
 Optimization. Width 32 trained for 8 updates sits at the initial loss of about 0.7, and 800 updates lower test loss to 0.440 with the same model, data and seed. The budget comparison above shows the same effect at 44 updates (49.4% accuracy) versus 800 (82.6%). The 8-update run is a deliberately short control, so these two contrasts together show that too few updates hurt a model that can fit this task. The 800-update fit still has a mean terminal gradient norm of 0.0168, so we also trained the same runs for 3,000 updates. Training loss kept falling from 0.379 to 0.323, but test loss stayed at 0.443 (0.440 at 800) and test accuracy at 84.4% (84.5%). Only one of the 15 runs met the gradient threshold. Beyond 800 updates, further optimization lowers the training objective without improving held-out performance on this protocol, and validation loss rises slightly.
 
