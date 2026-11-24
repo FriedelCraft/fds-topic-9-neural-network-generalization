@@ -38,7 +38,7 @@ Name & ID & Contribution \\
 \midrule
 Yash Saxena & 2024ADPS0868G & Data and protocol: noisy XOR and WDBC loaders, paired nested training subsets, training-only standardization, metrics and seeds. \\
 Raghav Singhal & 2024ADPS0827G & One-hidden-layer network and loss, derivation and NumPy implementation of backpropagation, finite-difference gradient checks. \\
-Devam Bhavsar & 2024ADPS0831G & Logistic-regression baseline, paired sweeps over hidden width and training size on both datasets, paired comparison with the baseline. \\
+Devam Bhavsar & 2024ADPS0831G & Reviewed and reran the logistic regression baseline and the experiments varying hidden width and training size on both datasets. Added paired comparisons to measure how consistently the networks performed relative to the baseline. \\
 Arnav Gupta & 2024ADPS0843G & Unregularized, weight-decay and early-stopping experiments with validation-based selection, and the review of selection and of paired accuracy and loss. \\
 Rishi Motwani & 2024ADPS0838G & Random-label experiments: separate label streams for train, validation and test, matched clean and random runs, label-independence audit. \\
 Mehta Prem & 2024ADPS0851G & Compute-budget comparison and the three controlled diagnoses, runtime benchmark, convergence study, this report and the standalone notebook. \\
@@ -136,22 +136,26 @@ The runtime benchmark repeats the 16 conditions of the compute comparison, namel
 \begin{table}[H]
 \centering
 \small
-\begin{tabular}{@{}lrccc@{}}
+\begin{tabular}{@{}lrccccc@{}}
 \toprule
-Dataset & Training size & Logistic test acc.\ / loss & Width 8 & Width 32 \\
+Dataset & Training size & Logistic test acc.\ / loss & Width 2 & Width 8 & Width 32 \\
 \midrule
-Noisy XOR & 32 & 45.6\% / 0.747 & 76.3\% / 0.591 & 75.8\% / 0.583 \\
-Noisy XOR & 96 & 47.3\% / 0.706 & 81.7\% / 0.462 & 82.6\% / 0.460 \\
-Noisy XOR & 256 & 50.9\% / 0.700 & 83.5\% / 0.442 & 84.5\% / 0.440 \\
-WDBC & 32 & 94.6\% / 0.218 & 94.0\% / 0.219 & 94.0\% / 0.225 \\
-WDBC & 96 & 95.4\% / 0.118 & 94.3\% / 0.148 & 94.6\% / 0.142 \\
-WDBC & 256 & 97.1\% / 0.084 & 95.8\% / 0.109 & 96.0\% / 0.084 \\
+Noisy XOR & 32 & 45.6\% / 0.747 & 66.7\% / 0.631 & 76.3\% / 0.591 & 75.8\% / 0.583 \\
+Noisy XOR & 96 & 47.3\% / 0.706 & 72.2\% / 0.554 & 81.7\% / 0.462 & 82.6\% / 0.460 \\
+Noisy XOR & 256 & 50.9\% / 0.700 & 73.6\% / 0.534 & 83.5\% / 0.442 & 84.5\% / 0.440 \\
+WDBC & 32 & 94.6\% / 0.218 & 93.7\% / 0.226 & 94.0\% / 0.219 & 94.0\% / 0.225 \\
+WDBC & 96 & 95.4\% / 0.118 & 94.8\% / 0.145 & 94.3\% / 0.148 & 94.6\% / 0.142 \\
+WDBC & 256 & 97.1\% / 0.084 & 94.4\% / 0.128 & 95.8\% / 0.109 & 96.0\% / 0.084 \\
 \bottomrule
 \end{tabular}
 \caption{Mean test accuracy / cross-entropy over 15 runs.}
 \end{table}
 
-On XOR at $n=256$, going from 2 to 8 hidden units raised accuracy from 73.6\% to 83.5\%, and going from 8 to 32 added about one more percentage point. At width 32, growing the training set from 32 to 256 examples raised mean accuracy by 8.7 percentage points and cut mean cross-entropy by 0.144. At $n=32$, width 32 has lower cross-entropy than width 8 but slightly lower accuracy, because cross-entropy also scores the probabilities the model assigns. On WDBC the linear baseline already separates most held-out cases, and extra width under this unregularized protocol brings no consistent test gain.
+On noisy XOR with 256 training examples, test accuracy rose from 73.6\% at width 2 to 83.5\% at width 8, then to 84.5\% at width 32. The biggest gain came from going from 2 to 8 hidden units. More data also helped at a fixed width. The 32-unit network went from 75.8\% accuracy with 32 examples to 84.5\% with 256.
+
+To check how consistent the improvement was, we compared each network run with logistic regression trained on the same examples. We averaged the paired differences over three initializations for each of the five data seeds. On noisy XOR with 256 examples, width 32 beat logistic regression by an average of 33.6 percentage points, with a standard deviation of 4.3 points across the five seeds. It improved both accuracy and cross-entropy on all five seed averages.
+
+On WDBC, logistic regression had higher mean test accuracy than every network at each training size in the unregularized sweep. With 256 examples, it scored 97.1\% compared with 96.0\% for width 32, and both had a cross-entropy of about 0.084. The nonlinear hidden layer helped on XOR, where a straight line cannot separate the classes. On WDBC, the linear baseline already performed well.
 
 \subsection{Regularization}
 
