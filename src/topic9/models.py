@@ -38,6 +38,7 @@ def _forward(params: Parameters, x: Array) -> tuple[Array, Array | None]:
 
 
 def _binary_scores(logits: Array, y: Array) -> tuple[Array, Array]:
+    # BCE is softplus(z) for y=0 and softplus(-z) for y=1.
     sign = 1.0 - 2.0 * y
     return np.logaddexp(0.0, sign * logits), sign
 
@@ -54,23 +55,26 @@ def _loss_gradient_metrics(
 ) -> tuple[float, Parameters, dict[str, float]]:
     logits, hidden = _forward(params, x)
     losses, sign = _binary_scores(logits, y)
-    # -expm1(-softplus(s*z)) is sigmoid(s*z), including for extreme logits.
-    residual = sign * (-np.expm1(-losses)) / len(y)
+    # d(mean BCE)/dz = (sigmoid(z) - y) / n.
+    # The equivalent signed form avoids overflow and cancellation at large logits.
+    delta = sign * (-np.expm1(-losses)) / len(y)
     if hidden is None:
-        grads = {"w": x.T @ residual, "b": np.asarray(residual.sum())}
+        grads = {"w": x.T @ delta, "b": np.asarray(delta.sum())}
         weight_keys = ("w",)
     else:
-        hidden_gradient = (residual[:, None] * params["w2"]) * (1.0 - hidden**2)
+        # Backpropagate through the output weights and the derivative of tanh.
+        hidden_delta = (delta[:, None] * params["w2"]) * (1.0 - hidden**2)
         grads = {
-            "w1": x.T @ hidden_gradient,
-            "b1": hidden_gradient.sum(axis=0),
-            "w2": hidden.T @ residual,
-            "b2": np.asarray(residual.sum()),
+            "w1": x.T @ hidden_delta,
+            "b1": hidden_delta.sum(axis=0),
+            "w2": hidden.T @ delta,
+            "b2": np.asarray(delta.sum()),
         }
         weight_keys = ("w1", "w2")
 
     data_loss = float(losses.mean())
     objective = data_loss
+    # L2 regularization applies to weights, not biases.
     if weight_decay:
         for key in weight_keys:
             objective += 0.5 * weight_decay * float(np.sum(params[key] ** 2))
@@ -108,9 +112,11 @@ def gradient_check(
     epsilon: float = 1e-5,
 ) -> dict[str, float | int]:
     """Perturb every coordinate and compare central differences with backpropagation."""
-    if epsilon <= 0:
-        raise ValueError("The finite-difference step must be positive.")
-    _, analytic = loss_and_grad(params, x, y, weight_decay)
+    if not np.isfinite(epsilon) or epsilon <= 0:
+        raise ValueError("The finite-difference step must be finite and positive.")
+    objective, analytic = loss_and_grad(params, x, y, weight_decay)
+    if not np.isfinite(objective):
+        raise FloatingPointError("Nonfinite objective in gradient check.")
     perturbed = {key: value.copy() for key, value in params.items()}
     errors: list[float] = []
     relative_errors: list[float] = []
@@ -124,6 +130,8 @@ def gradient_check(
             param[index] = original
             numeric = (upper - lower) / (2.0 * epsilon)
             exact = float(analytic[key][index])
+            if not (np.isfinite(numeric) and np.isfinite(exact)):
+                raise FloatingPointError(f"Nonfinite gradient for {key}{index}.")
             error = abs(numeric - exact)
             errors.append(error)
             relative_errors.append(error / max(1e-8, abs(numeric) + abs(exact)))
