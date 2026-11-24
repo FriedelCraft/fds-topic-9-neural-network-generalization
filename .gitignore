@@ -16,3 +16,4 @@ report/*.synctex.gz
 
 # Working directory the notebook creates when run
 topic9_nb/
+reproduced-results/

@@ -9,14 +9,18 @@ Use Python 3.10 or newer. From the repository root, in an activated virtual envi
 ```sh
 python -m pip install -e .
 python -m unittest discover -s tests -v
-python -m topic9.experiments --output results
-python -m topic9.figures results
+python -m topic9.experiments --output reproduced-results
+python -m topic9.capacity reproduced-results
+python -m topic9.random_labels reproduced-results
+python -m topic9.figures reproduced-results
 ```
 
-For an end-to-end check that writes to a separate directory:
+For a faster check, the same workflow uses one seed pair and at most 40 updates per fit.
 
 ```sh
 python -m topic9.experiments --quick --output smoke-results
+python -m topic9.capacity smoke-results
+python -m topic9.random_labels smoke-results
 python -m topic9.figures smoke-results
 ```
 
@@ -25,9 +29,9 @@ The full run covers 91 experiment conditions with 15 paired repetitions per cond
 ## Runtime benchmark and convergence study
 
 ```sh
-python -m topic9.benchmark --output results
-python -m topic9.sensitivity --output results
-python -m topic9.figures results
+python -m topic9.benchmark --output reproduced-results
+python -m topic9.sensitivity --output reproduced-results
+python -m topic9.figures reproduced-results
 ```
 
 `benchmark` times the 16 compute-budget conditions on matched seeds and writes `runtime.csv` (one row per timed repeat), `runtime_summary.csv` and `runtime.json` (machine description and cost-model fits). `sensitivity` varies the update cap and the learning rate on noisy XOR and writes `convergence.csv` and `convergence.json`. Both accept `--quick` for a one-seed smoke test. The convergence results are deterministic. The timings depend on the machine, so reruns will differ from the archived values. The figures `runtime.svg` and `convergence.svg` are written next to the others. The [report](report/report.tex) discusses both.
